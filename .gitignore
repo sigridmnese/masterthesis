@@ -1,0 +1,22 @@
+# 1) Først: ignorér ALT under code/ og gifures og results
+/code/*
+/figures/*
+/results/*
+
+# 2) Så: un‑ignorér selve mappen Julia_programmering
+!/code/Julia_programmering/
+
+# 3) ignorér ALT under Julia_programmering
+/code/Julia_programmering/*
+
+# 4) un‑ignorér Starting_up
+!/code/Julia_programmering/Starting_up/
+
+# 5) ignorér ALT under Starting_up
+/code/Julia_programmering/Starting_up/*
+
+# 6) un‑ignorér de to arbeidsmappene og alt inni dem
+!/code/Julia_programmering/Starting_up/workfiles_poisson/
+!/code/Julia_programmering/Starting_up/workfiles_poisson/**
+!/code/Julia_programmering/Starting_up/workfiles_stokes/
+!/code/Julia_programmering/Starting_up/workfiles_stokes/**
