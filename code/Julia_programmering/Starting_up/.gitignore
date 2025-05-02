@@ -1,0 +1,6 @@
+*
+!.gitignore
+!workfiles_poisson/
+!workfiles_poisson/**
+!workfiles_stokes/
+!workfiles_stokes/**
