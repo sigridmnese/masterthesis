@@ -6,13 +6,13 @@ using Plots
 
 ##### Divergensfri stokes løser ####
 # hva hvis det ikke er divergensfritt?
-
+nu = 1
 u_exact(x) = VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1]))
 p_exact(x) = sin(2*π*x[1])
 # Forcing term
 #f(x)= -Δ(u_ex)(x)+ ∇(p_ex)(x)
-f(x) = -divergence(∇(u_ex))(x) + ∇(p_ex)(x)
-u_D(x) = u_ex(x)
+f(x) = -divergence(∇(u_exact))(x) + ∇(p_exact)(x)
+ud(x) = u_exact(x)
 domain = "circle"
 n = 128
 γ = 10* 2*2 
@@ -86,7 +86,7 @@ function jump_nn(u,n)
   return ( n.plus ⋅ (n.plus⋅∇∇(u).plus) - n.minus ⋅ (n.minus ⋅ ∇∇(u).minus) )       # andre ordens hopp... Forklare dette skikkelig. 
 end
 
-function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false)
+function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
     """
     Using a stabilized Nitsche ficticious domain method as decribed by Massing and Larson, Logg and Rognes. Using P2-P1 Taylor-Hood elements.  
     n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
@@ -151,10 +151,10 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
     γ = 10*2*2
     u_D = ud
   | # Weak formulation components
-    a(u, v) = (∫(∇(u) ⊙ ∇(v))dΩ +
-                ∫(-((n_Γd ⋅ ∇(u)) ⋅ v) - ((n_Γd ⋅ ∇(v)) ⋅ u)+(γ/h * u ⋅ v))dΓd )
+    a(u, v) = (∫(∇(u) ⊙ ∇(v))dΩ + ∫(-((n_Γd ⋅ ∇(u)) ⋅ v) + (-(n_Γd ⋅ ∇(v)) ⋅ u)+(γ/h * u ⋅ v))dΓd )
     b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ
-                + ∫((n_Γd ⋅ v) * p)dΓd)
+                + ∫((n_Γd ⋅ v) * p)dΓd)#
+   
 
     gu(u,v) = ( ∫( (β_1*h)*jump(n_Fg⋅∇(u))⋅jump(n_Fg⋅∇(v)) )dFg 
             +  
@@ -163,29 +163,27 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
 
     gp(p, q) = (∫((β_3*h^3)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)
 
-    l2(u) = (sum( ∫( u ⋅ u )*dΩ ))
+    l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
     h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
     
+    l1(v) = ∫(f ⋅ v)dΩ
+    l2(v) = ∫(-1* (n_Γd ⋅ ∇(v)) ⋅ ud + γ/h ⋅ v ⋅ ud )dΓd   #∫)dΓd # + γ/h ⋅ ud ⋅ v)dΓd
+    l3(q) = ∫(n_Γd ⋅ ud *q)dΓd
+
     if stabilize
         A((u,p),(v,q)) =(a(u, v) + b(v, p) + b(u, q) 
         + gu(u,v)
         - gp(p, q)
         )
-#Husk at for +-b(u, q)  så blir det -+gp()
-        L((v,q)) = (∫(f ⋅ v)dΩ 
-        + ∫(γ /h *(v ⋅ u_D))dΓd # Nitsche term
-        - ∫((n_Γd ⋅ ∇(v)) ⋅ u_D)dΓd # symetri
-        + ∫((n_Γd ⋅ u_D)*q)dΓd) # b(u,q) term
 
+        L((v, q)) = l1(v) + l2(v) + l3(q)
     
         op = AffineFEOperator(A,L,X,Y)
         uh, ph = solve(op)
+
     else
         B((u,p),(v,q)) = a(u,v) + b(v, p) + b(u, q) 
-        M((v,q)) = (∫(f ⋅ v)dΩ 
-        + ∫(γ /h *(v ⋅ u_D))dΓd # Nitsche term
-        - ∫((n_Γd ⋅ ∇(v)) ⋅ u_D)dΓd # symetri
-        + ∫((n_Γd ⋅ u_D)*q)dΓd) # b(u,q) term
+        M((v,q)) = l1(v) + l2(v) + l3(q)
      # Linear forms
         op = AffineFEOperator(B,M,X,Y)
         uh, ph = solve(op)
@@ -195,8 +193,12 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
   erru = u_exact - uh
   
   # condition number
-  #condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
-  condition_numb = 1
+  if calc_condition
+    condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
+  else
+    condition_numb = 1
+  end
+
   if save
     # writevtk(Ω_act, "mesh_act_$geometry")
     # writevtk(Ω_bg, "mesh_bg_$geometry")
@@ -207,13 +209,13 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
     println("lagret")
     writevtk(Ω, "stokes $n $geometry $order", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru])
   end
-return uh, u_exact, erru, l2(uh - u_exact), h1_semi(uh), ph, p_exact, errp, l2(ph - p_exact), h1_semi(ph), condition_numb, Ω_act
+return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω_act
 end
 
 ################ Løsning ################
 # order = 2
 
-n = 128
+n = 64
 order = 2
 geometry = "circle"
 βu0 = 1
@@ -224,10 +226,12 @@ geometry = "circle"
 stabilize = true
 δ = 0
 save = true
-uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act  = stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
+g=1
+#uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act  = stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 
 function convergence(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save = false)
   #"""function to calculate convergence of the poisson solver, or the stokes solver, with or without stabilization"""
+  calc_condition = false 
   uarr_l2 = zeros(Float64, numb_it)
   uarr_h1 = zeros(Float64, numb_it)
   parr_l2 = zeros(Float64, numb_it)
@@ -239,15 +243,15 @@ function convergence(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solv
   for i = 1:numb_it
     n = n_arr[i]
     elapsed_time, solver_result = let
-        t, val = @timed solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
+        t, val = @timed solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
         (val, t) 
     end
     uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver_result
 
-      uarr_l2[i] = l2_u  #l2 error
-      uarr_h1[i] = h1_semi_u  #h1 error
-      parr_l2[i] = l2_p  #l2 error
-      parr_h1[i] = h1_semi_p  #h1 error
+    uarr_l2[i] = l2_u  #l2 error
+    uarr_h1[i] = h1_semi_u  #h1 error
+    parr_l2[i] = l2_p  #l2 error
+    parr_h1[i] = h1_semi_p  #h1 error
 
       println("$i: Solved system in $elapsed_time seconds.")
   end
@@ -260,6 +264,7 @@ function convergence(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solv
 end
 
 function sensitivity(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+    calc_condition = true
     arr_δ = zeros(Float64, M-1)
     arr_l2u = zeros(Float64, M-1)
     arr_h1u = zeros(Float64, M-1)
@@ -270,7 +275,7 @@ function sensitivity(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver,
     for i = 1:(M-1)
         δ = i/n/M *1.1/ sqrt(2)
         elapsed_time, solver_result = let
-            t, val = @timed solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
+            t, val = @timed solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
             (val, t)
         end
         uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver_result
@@ -291,18 +296,14 @@ function sensitivity(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver,
 end
 
 ####### Convergence test #######
-#  stabilisering, order 1
-# numb_it = 4                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
+#  stabilisering, order 1           # trenger ikke regne ut kondisjonstall når man gjør konvergestest...
+# numb_it = 6                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
 # order = 2                           # når jeg øker orden så øker kjøretid veeeeldig !! Bør vurdere å skru ned numb_it samtidig. 244 sekunder når jeg har på order = 2 for kjøringen 2^6
 # δ = 0                               # kan også se ut til at feilen havner på maskinnivå? vet ikke helt, men mulig å eksperimentere med dette. 
 # # med stabilisering, order 1
 # stabilize = true
 # solver = stokes_solver
 # geometry = "circle"
-# u_exact = u_ex
-# p_exact = p_ex
-# βu0 = βu
-# βp0 = βp
 # γu1 = 0.1
 # γu2 = 0.1
 # γp = 0.1
@@ -327,30 +328,30 @@ end
 
 ####### Sensitivity test #######
 # kjører nå denne med n = 16, men bør nok kjøre for n = 32 eller n = 64, men det kan ta laaaag tid. 30 min per kjøring ved n = 64 -
-# n = 8           # øke denne
-# M = 100        #full kjøring med M = 2000
-# order = 2
-# geometry = "circle"
-# solver = stokes_solver
-# βu0 = 1
-# γu1 = 0.1
-# γu2 = 0.1
-# γp = 0.1
-# βp0 = 0.1
-# stabilize = true
-# save = false
+n = 16           # øke denne
+M = 2000        #full kjøring med M = 2000
+order = 2
+geometry = "circle"
+solver = stokes_solver
+βu0 = 1
+γu1 = 1
+γu2 = 1
+γp = 0.1
+βp0 = 0.1
+stabilize = true
+save = false
 
-# arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond = sensitivity(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
-# stabilize = false
-# start = 1
-# arr_δ_nostab, arr_l2u_nostab, arr_h1u_nostab, arr_l2p_nostab, arr_h1p_nostab, arr_cond_nostab = sensitivity(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
-# plot(arr_δ[start:end], arr_l2u[start:end], xaxis=:log, yaxis=:log, lw=2, label="L2 error, stabilized")
-# plot!(arr_δ_nostab[start:end], arr_l2u_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="L2 error, non-stabilized")
-# plot!(arr_δ[start:end], arr_h1u[start:end], xaxis=:log, yaxis=:log, lw=2, label="h1 stabilized")
-# plot!(arr_δ_nostab[start:end], arr_h1u_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="h1 non-stabilized")
-# xlabel!("Perturbation δ")
-# ylabel!("Condition number")
-# title!("Sensitivity analysis of stokes solver, solution u")
+arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond = sensitivity(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+stabilize = false
+start = 1
+arr_δ_nostab, arr_l2u_nostab, arr_h1u_nostab, arr_l2p_nostab, arr_h1p_nostab, arr_cond_nostab = sensitivity(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+plot(arr_δ[start:end], arr_l2u[start:end],  yaxis=:log, lw=2, label="L2 error, stabilized")
+plot!(arr_δ_nostab[start:end], arr_l2u_nostab[start:end], yaxis=:log, lw=2, label="L2 error, non-stabilized")
+plot!(arr_δ[start:end], arr_h1u[start:end], yaxis=:log, lw=2, label="h1 stabilized")
+plot!(arr_δ_nostab[start:end], arr_h1u_nostab[start:end], yaxis=:log, lw=2, label="h1 non-stabilized")
+xlabel!("Perturbation δ")
+ylabel!("Condition number")
+title!("Sensitivity analysis of stokes solver, solution u")
 
 # plot(arr_δ[start:end], arr_cond[start:end], yaxis=:log, label = "Stabilized")
 # plot!(arr_δ[start:end], arr_cond_nostab[start:end],yaxis=:log, label = "Not stabilized")
