@@ -21,6 +21,8 @@ n = 128
 β_3 = 0.1
 γ=10*2*2
 
+outputfolder = "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\"
+
 function create_geometry_old(name, n, δ = 0)
   try
       if lowercase(name) == "circle"
@@ -207,7 +209,7 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
     # writevtk(Γs , "outer_$geometry")
     # writevtk(Fg, "ghost_facets_$geometry")
     println("lagret")
-    writevtk(Ω, "stokes $n $geometry $order", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru])
+    writevtk(Ω,joinpath(outputfolder," $n $geometry $order"), cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru])
   end
 return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω_act
 end
