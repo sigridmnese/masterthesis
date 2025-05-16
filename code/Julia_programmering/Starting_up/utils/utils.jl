@@ -267,12 +267,11 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
       γ = 10*2*2
       u_D = ud
     | # Weak formulation components
-      a(u, v) = (∫(∇(u) ⊙ ∇(v))dΩ + ∫(-((n_Γd ⋅ ∇(u)) ⋅ v) + (-(n_Γd ⋅ ∇(v)) ⋅ u)+(γ/h * u ⋅ v))dΓd )
+      a(u, v) = (∫(ε(u) ⊙ ε(v))dΩ + ∫(-((n_Γd ⋅ ε(u)) ⋅ v) + (-(n_Γd ⋅ ε(v)) ⋅ u)+(γ/h * u ⋅ v))dΓd )
       b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ
                   + ∫((n_Γd ⋅ v) * p)dΓd)#
      
-  
-      gu(u,v) = ( ∫( (β_1*h)*jump(n_Fg⋅∇(u))⋅jump(n_Fg⋅∇(v)) )dFg 
+      gu(u,v) = ( ∫( (β_1*h)*jump(n_Fg ⋅ ∇(u))⋅jump(n_Fg⋅ ∇(v)) )dFg 
               +  
                  ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
   
@@ -283,7 +282,7 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
       h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
       
       l1(v) = ∫(f ⋅ v)dΩ
-      l2(v) = ∫(-1* (n_Γd ⋅ ∇(v)) ⋅ ud + γ/h ⋅ v ⋅ ud )dΓd   #∫)dΓd # + γ/h ⋅ ud ⋅ v)dΓd
+      l2(v) = ∫(-1* (n_Γd ⋅ ε(v)) ⋅ ud + γ/h ⋅ v ⋅ ud )dΓd
       l3(q) = ∫(n_Γd ⋅ ud *q)dΓd
   
       if stabilize
@@ -291,12 +290,9 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
           + gu(u,v)
           - gp(p, q)
           )
-  
           L((v, q)) = l1(v) + l2(v) + l3(q)
-      
           op = AffineFEOperator(A,L,X,Y)
           uh, ph = solve(op)
-  
       else
           B((u,p),(v,q)) = a(u,v) + b(v, p) + b(u, q) 
           M((v,q)) = l1(v) + l2(v) + l3(q)
@@ -323,9 +319,80 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
       # writevtk(Γs , "outer_$geometry")
       # writevtk(Fg, "ghost_facets_$geometry")
       #println("lagret")
-      writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\ $n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru])
+      writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω_act
+end
+
+
+function stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
+    """
+    Regular fitted FEM solver    
+    n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
+    u_exact: exact solution for method of manufactured solutions
+    order: order of polynomial degree. 
+    f: lhs for first term, -Δ u_ex + ∇p = f
+    g: lhs for second term u = g
+    geometry: optional between "Circle", "Flower", "Heart", "Glacier". Will not affect anything - just added so that the function takes similar function arguments as the stokes_solver
+    βu0, γu1, γu2, γp, βp0: parameters for the stokes solver. Will not affect anything - just added so that the function takes similar function arguments as the stokes_solver
+    stabilize: will not affect anything - just added so that the function takes similar function arguments as the stokes_solver
+    δ: perturbation of cut, will not affect anything - just added so that the function takes similar function arguments as the stokes_solver
+    """
+    # Define background mesh
+    domain = (0,1,0,1)
+    partition = (n,n)
+    model = CartesianDiscreteModel(domain, partition)    
+
+    labels = get_face_labeling(model)
+    
+    # alle grensetagsene får dirichlet = g
+    add_tag_from_tags!(labels, "dirig", [1, 2, 3, 4, 5, 6, 7, 8])
+    order = 2
+    reffeᵤ = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+    reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
+  
+    V = TestFESpace(model,reffeᵤ,labels=labels,dirichlet_tags="dirig",conformity=:H1)
+    Q = TestFESpace(model,reffeₚ,conformity=:L2,constraint=:zeromean)
+    Y = MultiFieldFESpace([V,Q])
+  
+    U = TrialFESpace(V,ud)
+    P = TrialFESpace(Q)
+    X = MultiFieldFESpace([U,P])
+
+    degree = order
+    Ω = Triangulation(model)
+    dΩ = Measure(Ω,degree)
+     
+    # Weak formulation components
+    a(u, v) = ∫( ∇(v)⊙∇(u))dΩ
+    b(v, p) = ∫(-(∇⋅v)*p )dΩ
+    
+
+    l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
+    h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
+      
+    l1(v) = ∫(f ⋅ v)dΩ
+    
+    A((u,p),(v,q)) =(a(u, v) + b(v, p) - b(u, q))
+    L((v, q)) = l1(v)
+    
+    op = AffineFEOperator(A,L,X,Y)
+    uh, ph = solve(op)
+  
+    errp = p_exact - ph
+    erru = u_exact - uh
+    
+    # condition number
+    if calc_condition
+      condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
+    else
+      condition_numb = 1
+    end
+  
+    if save
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+    end
+    return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 
   
@@ -360,7 +427,7 @@ function convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometr
   #EOC_l2 = log.(uarr_l2[1:end-1] ./ uarr_l2[2:end]) ./ log.(h[1:end-1] ./ h[2:end])
   #EOC_h1 = log.(uarr_h1[1:end-1] ./ uarr_h1[2:end]) ./ log.(h[1:end-1] ./ h[2:end])
 
-  return uarr_l2, uarr_h1, parr_l2, parr_l2, h#, EOC_l2, EOC_h1
+  return uarr_l2, uarr_h1, parr_l2, parr_h1, h#, EOC_l2, EOC_h1
 end
 
 function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
@@ -394,4 +461,36 @@ function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, 
         end
     end
     return arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond
+end
+
+
+
+function stokes_plot(
+    δ_stab, δ_nostab,                          # δ-verdier (x-verdier)
+    datasets::Vector{Tuple},                   # Liste med: (y_stab, y_nostab, label, ylabel)
+    idx = 1:100:1999,                          # Markørindekser for stabiliserte
+    id2 = 51:100:1999,                         # Markørindekser for ustabiliserte
+    start::Int = 1, end_::Int = 1999,          # Plot-utvalg
+    plot_title = "Stokes Solver Analysis"
+)
+
+    plt = plot(0, title=plot_title,
+               xlabel="Perturbation δ",
+               titlefont=16,
+               guidefont=14,
+               tickfont=12)
+
+    for (y_stab, y_nostab, label, ylabel) in datasets
+        # Markører for stabiliserte
+        scatter!(δ_stab[idx], y_stab[idx], label="", marker=:circle, ms=4)
+        # Linje for stabiliserte
+        plot!(δ_stab[start:end_], y_stab[start:end_], yaxis=:log, lw=2, label="$label stabilized")
+        # Markører for ikke-stabiliserte
+        scatter!(δ_nostab[id2], y_nostab[id2], label="", marker=:s, ms=4)
+        # Linje for ikke-stabiliserte
+        plot!(δ_nostab[start:end_], y_nostab[start:end_], yaxis=:log, lw=2, label="$label non-stabilized")
+        ylabel!(ylabel)
+    end
+
+    return plt
 end

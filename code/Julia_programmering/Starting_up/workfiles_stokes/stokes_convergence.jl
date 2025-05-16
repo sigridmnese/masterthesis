@@ -8,11 +8,15 @@ include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\
 ##### Divergensfri stokes løser ####
 # hva hvis det ikke er divergensfritt?
 nu = 1
+
+# endrer nå alle symbolder før under det er nabla til epsilon...
+
 u_exact(x) = VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1]))
 p_exact(x) = sin(2*π*x[1])
 # Forcing term
 #f(x)= -Δ(u_ex)(x)+ ∇(p_ex)(x)
-f(x) = -divergence(∇(u_exact))(x) + ∇(p_exact)(x)
+##### det står at symmetric_gradient inkluderer en faktor 1/2, så trenger ikke ta hensyn til dette. 
+f(x) = -divergence(ε(u_exact))(x) + ∇(p_exact)(x)
 ud(x) = u_exact(x)
 domain = "circle"
 n = 128
@@ -26,57 +30,88 @@ outputfolder = "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\"
 ################ Løsning ################
 # order = 2
 
-n = 64
-order = 2
-geometry = "circle"
-βu0 = 1
-γu1 = 1
-γu2 = 1.0
-γp = 0.1
-βp0 = 0.1
-stabilize = true
-δ = 0
-save = true
-g=1
-calc_condition = false
+# n = 64
+# order = 2
+# geometry = "heart"
+# βu0 = 1
+# γu1 = 1
+# γu2 = 1.0
+# γp = 0.1
+# βp0 = 0.1
+# stabilize = true
+# δ = 0
+# save = true
+# g=1
+# calc_condition = false
 #uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act  = stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 
 
 # ####### convergence_stokes test #######
 # #  stabilisering, order 1           # trenger ikke regne ut kondisjonstall når man gjør konvergestest...
-numb_it = 6                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
-order = 2                           # når jeg øker orden så øker kjøretid veeeeldig !! Bør vurdere å skru ned numb_it samtidig. 244 sekunder når jeg har på order = 2 for kjøringen 2^6
-δ = 0                               # kan også se ut til at feilen havner på maskinnivå? vet ikke helt, men mulig å eksperimentere med dette. 
-# med stabilisering, order 1
-stabilize = true
-solver = stokes_solver
-geometry = "circle"
-γu1 = 0.1
-γu2 = 0.1
-γp = 0.1
-save = false
-# fjernet disse: , eoc_l2, eoc_h1
-uarr_l2_1_stab, uarr_h1_1_stab, parr_l2_1_stab, parr_h1_1_stab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
-start = 1
-plot(h[start:end], uarr_l2_1_stab[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 error")
-plot!(h[start:end], uarr_h1_1_stab[start:end], marker=:s, lw=2, label="H1 error")
-
+# numb_it = 6                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
+# order = 2                           # når jeg øker orden så øker kjøretid veeeeldig !! Bør vurdere å skru ned numb_it samtidig. 244 sekunder når jeg har på order = 2 for kjøringen 2^6
+# δ = 0                               # kan også se ut til at feilen havner på maskinnivå? vet ikke helt, men mulig å eksperimentere med dette. 
+# # med stabilisering, order 1
+# stabilize = true
+# solver = stokes_solver
+# geometry = "circle"
+# γu1 = 0.1
+# γu2 = 0.1
+# γp = 0.1
+# save = false
+# # fjernet disse: , eoc_l2, eoc_h1
+# uarr_l2_1_stab, uarr_h1_1_stab, parr_l2_1_stab, parr_h1_1_stab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+# start = 1
 # # # # Uten stabilisering, order 1
-# # stabilize = false
-# # uarr_l2_1_nostab, uarr_h1_1_nostab, parr_l2_1_nostab, parr_h1_1_nostab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+# stabilize = false
+# uarr_l2_1_nostab, uarr_h1_1_nostab, parr_l2_1_nostab, parr_h1_1_nostab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
-# # plot!(h[start:end], uarr_l2_1_nostab[start:end], marker=:s, lw=2, label="L2 error, order $order (no Stab)")
-# # plot!(h[start:end], uarr_h1_1_nostab[start:end], marker=:s, lw=2, label="H1 error, order $order (no Stab)")
+# plot(
+#     0,
+#     title = "Convergence of Stokes Solver",
+#     xlabel = "Mesh size h",
+#     ylabel = "Velocity error",
+#     titlefont = 16,
+#     guidefont = 14,
+#     tickfont = 12
+# )
+# plot!(h[start:end], uarr_l2_1_stab[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
+# plot!(h[start:end], uarr_h1_1_stab[start:end], marker=:o, lw=2, label="H1 stabilized")
+
+# plot!(h[start:end], uarr_l2_1_nostab[start:end], marker=:s, lw=2, label="L2 non-stabilized")
+# plot!(h[start:end], uarr_h1_1_nostab[start:end], marker=:s, lw=2, label="H1 non-stabilized")
 
 # # # # Legger til aksetitler og tittel
 # # xlabel!("Mesh size h")
 # # ylabel!("Error")
-# # title!("convergence_stokes of Stokes Solver")
+
+
+# #### same plot for p:
+# plot(
+#     0,
+#     title = "Convergence of Stokes Solver",
+#     xlabel = "Mesh size h",
+#     ylabel = "Pressure error",
+#     titlefont = 16,
+#     guidefont = 14,
+#     tickfont = 12
+# )
+# plot!(h[start:end], parr_l2_1_stab[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
+# plot!(h[start:end], parr_h1_1_stab[start:end], marker=:o, lw=2, label="H1 stabilized")
+
+
+# plot!(h[start:end], parr_l2_1_nostab[start:end], marker=:s, lw=2, label="L2 non-stabilized")
+# plot!(h[start:end], parr_h1_1_nostab[start:end], marker=:s, lw=2, label="H1 non-stabilized")
+
+# # # Legger til aksetitler og tittel
+# xlabel!("Mesh size h")
+# ylabel!("Error")
+# title!("Convergence of Stokes Solver")
 
 # ####### sensitivity_stokes test #######
 # # kjører nå denne med n = 16, men bør nok kjøre for n = 32 eller n = 64, men det kan ta laaaag tid. 30 min per kjøring ved n = 64 -
 n = 16           # øke denne
-M = 1000        #full kjøring med M = 2000
+M = 2000        #full kjøring med M = 2000
 order = 2
 geometry = "circle"
 solver = stokes_solver
@@ -89,29 +124,74 @@ stabilize = true
 save = false
 calc_condition = true
 
-arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
-stabilize = false
-start = 1
-arr_δ_nostab, arr_l2u_nostab, arr_h1u_nostab, arr_l2p_nostab, arr_h1p_nostab, arr_cond_nostab = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
-plot(arr_δ[start:end], arr_l2u[start:end],  yaxis=:log, lw=2, label="L2 error, stabilized")
-plot!(arr_δ_nostab[start:end], arr_l2u_nostab[start:end], yaxis=:log, lw=2, label="L2 error, non-stabilized")
-plot!(arr_δ[start:end], arr_h1u[start:end], yaxis=:log, lw=2, label="h1 stabilized")
-plot!(arr_δ_nostab[start:end], arr_h1u_nostab[start:end], yaxis=:log, lw=2, label="h1 non-stabilized")
-xlabel!("Perturbation δ")
-ylabel!("Condition number")
-title!("sensitivity_stokes analysis of stokes solver, solution u")
+# arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+# stabilize = false
+# start = 1
+# arr_δ_nostab, arr_l2u_nostab, arr_h1u_nostab, arr_l2p_nostab, arr_h1p_nostab, arr_cond_nostab = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
-plot!(arr_δ[start:end], arr_cond[start:end], yaxis=:log, label = "Stabilized")
-plot!(arr_δ[start:end], arr_cond_nostab[start:end],yaxis=:log, label = "Not stabilized")
+# plot(
+#     0,
+#     title = "Sensitivity of Stokes Solver",
+#     xlabel = "Perturbation δ",
+#     ylabel = "Velocity error",
+#     titlefont = 16,
+#     guidefont = 14,
+#     tickfont = 12
+# )
+# Indeksene der vi vil ha markører (hver 100.)
+idx = 1:100:1999
+id2 = 51:100:1999
+# scatter!(arr_δ[idx], arr_l2u[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_l2u[start:end],  yaxis=:log, lw=2, label="L2 stabilized")
+# scatter!(arr_δ[id2], arr_l2u_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ_nostab[start:end], arr_l2u_nostab[start:end], yaxis=:log, lw=2, label="L2 non-stabilized")
+# scatter!(arr_δ[idx], arr_h1u[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_h1u[start:end], yaxis=:log, lw=2, label="H1 stabilized")
+# scatter!(arr_δ[id2], arr_h1u_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ_nostab[start:end], arr_h1u_nostab[start:end], yaxis=:log, lw=2, label="H1 non-stabilized")
+# xlabel!("Perturbation δ")
+# ylabel!("Velocity error")
+# title!("Sensitivity analysis of Stokes solver")
+
+
+#condition number plot:
+# plot(
+#     0,
+#     title = "Sensitivity of Stokes Solver",
+#     xlabel = "Perturbation δ",
+#     ylabel = "Condition number",
+#     titlefont = 16,
+#     guidefont = 14,
+#     tickfont = 12
+# )
+# scatter!(arr_δ[idx], arr_cond[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_cond[start:end], yaxis=:log, label = "Stabilized")
+# scatter!(arr_δ[id2], arr_cond_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ[start:end], arr_cond_nostab[start:end],yaxis=:log, label = "Not stabilized")
 
 # # if I want the same plot for p
-# plot(arr_δ[start:end], arr_l2p[start:end], xaxis=:log, yaxis=:log, lw=2, label="L2 error, stabilized")
-# plot!(arr_δ_nostab[start:end], arr_l2p_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="L2 error, non-stabilized")
-# plot!(arr_δ[start:end], arr_h1p[start:end], xaxis=:log, yaxis=:log, lw=2, label="h1 stabilized")
-# plot!(arr_δ_nostab[start:end], arr_h1p_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="h1 non-stabilized")
+
+# plot(
+#     0,
+#     title = "Sensitivity of Stokes Solver",
+#     xlabel = "Perturbation δ",
+#     ylabel = "Condition number",
+#     titlefont = 16,
+#     guidefont = 14,
+#     tickfont = 12
+# )
+# scatter!(arr_δ[idx], arr_l2p[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_l2p[start:end],  yaxis=:log, lw=2, label="L2 stabilized")
+# scatter!(arr_δ[id2], arr_l2p_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ_nostab[start:end], arr_l2p_nostab[start:end], yaxis=:log, lw=2, label="L2 non-stabilized")
+# scatter!(arr_δ[idx], arr_h1p[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_h1p[start:end], yaxis=:log, lw=2, label="H1 stabilized")
+# scatter!(arr_δ[id2], arr_h1p_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ_nostab[start:end], arr_h1p_nostab[start:end], yaxis=:log, lw=2, label="H1 non-stabilized")
 # xlabel!("Perturbation δ")
-# ylabel!("Condition number")
-# title!("sensitivity_stokes analysis of stokes solver, solution p")
+# ylabel!("Pressure error")
+# title!("Pressure error Stokes")
+
 
 # # #### Varying geometry
 # geometry_arr = ["circle", "flower", "heart"]

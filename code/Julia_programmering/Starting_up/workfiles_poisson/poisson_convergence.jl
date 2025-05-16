@@ -16,14 +16,14 @@ import Gridap: ∇
 γd = 10
 γg1 = 10
 γg3 = 0.1
-stabilize = true
-n = 16
-uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "heart", γd, γg1, γg3, stabilize, 0, false)
+stabilize = false
+n = 64
+#uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "circle", γd, γg1, γg3, stabilize, 0, true)
 #writevtk(Ω, "testing_stabilized_poisson_circle.vtu", cellfields=["uh"=>uh, "u_ex"=>u_exact, "erru" => erru])
 
 ####### convergence_poisson test #######
 # med stabilisering, order 1
-# numb_it = 7                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
+# numb_it = 6                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
 # order = 1                           # når jeg øker orden så øker kjøretid veeeeldig !! Bør vurdere å skru ned numb_it samtidig. 244 sekunder når jeg har på order = 2 for kjøringen 2^6
 # δ = 0                               # kan også se ut til at feilen havner på maskinnivå? vet ikke helt, men mulig å eksperimentere med dette. 
 # # med stabilisering, order 1
@@ -31,48 +31,59 @@ uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "heart
 # solver = poisson_solver
 # arr_l2_1_stab, arr_h1_1_stab, h = convergence_poisson(numb_it, u_ex, f, order, "circle",solver, δ, γd, γg1, γg3, stabilization, false)
 # start = 2
-# plot(h[start:end], arr_l2_1_stab[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 error, order 1 (stab)")
-# plot!(h[start:end], arr_h1_1_stab[start:end], marker=:s, lw=2, label="H1 error, order 1 (Stab)")
 
 # # Uten stabilisering, order 1
 # stabilization = false
 # solver = poisson_solver
 # arr_l2_1_nostab, arr_h1_1_nostab, h = convergence_poisson(numb_it, u_ex, f, order, "circle", solver, δ, γd, γg1, γg3, stabilization, true)
 
-# plot!(h[start:end], arr_l2_1_nostab[start:end], marker=:s, lw=2, label="L2 error, order 1 (no Stab)")
-# plot!(h[start:end], arr_h1_1_nostab[start:end], marker=:s, lw=2, label="H1 error, order 1 (no Stab)")
+plot(
+    0,
+    title = "Convergence of Poisson Solver",
+    xlabel = "Mesh size h",
+    ylabel = "Error",
+    titlefont = 16,
+    guidefont = 14,
+    tickfont = 12
+)
+plot!(h[start:end], arr_l2_1_stab[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 error (stab)")
+plot!(h[start:end], arr_h1_1_stab[start:end], marker=:o, lw=2, label="H1 error, (Stab)")
+plot!(h[start:end], arr_l2_1_nostab[start:end], marker=:s, lw=2, label="L2 error, (no Stab)")
+plot!(h[start:end], arr_h1_1_nostab[start:end], marker=:s, lw=2, label="H1 error, (no Stab)")
 
 # # Legger til aksetitler og tittel
 # xlabel!("Mesh size h")
 # ylabel!("Error")
-# title!("convergence_poisson of Poisson Solver")
+title!("Convergence of Poisson Solver")
+
+
 
 ####### sensitivity_poisson test #######
-M = 2000
-n = 16
-order = 1
-stabilize = true
-arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd, γg1, γg3, stabilize, false)
-stabilize = false
-arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd, γg1, γg3, stabilize, false)
-start = 1
-using Plots
-e = 1999
-#condition numbers
-plot(arr_δ[start:e], arr_cond[start:e], yaxis=:log, lw=2, label="Stabilized")
-plot!(arr_δ_nostab[start:e], arr_cond_nostab[start:e], yaxis=:log, lw=2, label="Non-stabilized")
-xlabel!("Perturbation δ")
-ylabel!("Condition number")
-title!("sensitivity analysis of cutFEM poisson")
-savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_condition_number")
+# M = 2000
+# n = 16
+# order = 1
+# stabilize = true
+# arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd, γg1, γg3, stabilize, false)
+# stabilize = false
+# arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd, γg1, γg3, stabilize, false)
+# start = 1
+# using Plots
+# e = 1999
+# #condition numbers
+# plot(arr_δ[start:e], arr_cond[start:e], yaxis=:log, lw=2, label="Stabilized")
+# plot!(arr_δ_nostab[start:e], arr_cond_nostab[start:e], yaxis=:log, lw=2, label="Non-stabilized")
+# xlabel!("Perturbation δ")
+# ylabel!("Condition number")
+# title!("sensitivity analysis of cutFEM poisson")
+# savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_condition_number")
 
-#errors
-plot(arr_δ[start:end], arr_l2[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L^2 norm")
-plot!(arr_δ[start:end], arr_h1[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="H^1 norm")
-xlabel!("Perturbation δ")
-ylabel!("Error")
-title!("sensitivity analysis of cutFEM poisson")
-savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_errors")
+# #errors
+# plot(arr_δ[start:end], arr_l2[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L^2 norm")
+# plot!(arr_δ[start:end], arr_h1[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="H^1 norm")
+# xlabel!("Perturbation δ")
+# ylabel!("Error")
+# title!("sensitivity analysis of cutFEM poisson")
+# savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_errors")
 
 
 # #### Varying geometry
