@@ -16,7 +16,7 @@ outputfolderstokes = "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stok
             return geo
         elseif lowercase(name) =="heart"
             R  = 0.7
-            geo = AnalyticalGeometry(x -> (-R     +   (x[1])^2   +     ( 5/4 * x[2]   -     sqrt(abs(x[1]))  )^2   ))
+            geo = AnalyticalGeometry(x -> (-R     +   (x[1])^2   +     ( 5/4 * (x[2]+0.2)   -     sqrt(abs(x[1]))  )^2   ))
             #geo = AnalyticalGeometry(x -> (x[1])^2 + (5/4 * (x[2]) - √(abs(x[1])))^2 - R)
             return geo
         else
@@ -124,10 +124,11 @@ function poisson_solver(n, u_exact, lhs, order, geometry, γd, γg1, γg3, stabi
     condition_numb= cond(Array(get_matrix(op)),2)
 
     if save
-        #writevtk(Ω_act, "mesh_act_$geometry $δ.vtu")
-        #writevtk(Ω, "mesh_$geometry $δ.vtu")
-        #writevtk(Γ, "surface_gamma_d_$geometry $δ.vtu")
-        #writevtk(Fg, "ghost_facets_$geometry $δ.vtu")
+        writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+        writevtk(Ω_act, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_act_$geometry $δ.vtu")
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_$geometry $δ.vtu")
+        writevtk(Γ, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
+        writevtk(Fg, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\ghost_facets_$geometry $δ.vtu")
         
         writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru]) #, "erru" => erru])
     end
@@ -323,7 +324,6 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω_act
 end
-
 
 function stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
     """

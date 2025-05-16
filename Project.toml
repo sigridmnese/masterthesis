@@ -1,3 +1,4 @@
 [deps]
 LineSearches = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
+LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"

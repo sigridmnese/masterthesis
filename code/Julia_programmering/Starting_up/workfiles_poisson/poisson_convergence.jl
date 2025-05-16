@@ -18,7 +18,7 @@ import Gridap: ∇
 γg3 = 0.1
 stabilize = false
 n = 64
-#uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "circle", γd, γg1, γg3, stabilize, 0, true)
+uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "heart", γd, γg1, γg3, stabilize, 0, true)
 #writevtk(Ω, "testing_stabilized_poisson_circle.vtu", cellfields=["uh"=>uh, "u_ex"=>u_exact, "erru" => erru])
 
 ####### convergence_poisson test #######
@@ -37,24 +37,24 @@ n = 64
 # solver = poisson_solver
 # arr_l2_1_nostab, arr_h1_1_nostab, h = convergence_poisson(numb_it, u_ex, f, order, "circle", solver, δ, γd, γg1, γg3, stabilization, true)
 
-plot(
-    0,
-    title = "Convergence of Poisson Solver",
-    xlabel = "Mesh size h",
-    ylabel = "Error",
-    titlefont = 16,
-    guidefont = 14,
-    tickfont = 12
-)
-plot!(h[start:end], arr_l2_1_stab[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 error (stab)")
-plot!(h[start:end], arr_h1_1_stab[start:end], marker=:o, lw=2, label="H1 error, (Stab)")
-plot!(h[start:end], arr_l2_1_nostab[start:end], marker=:s, lw=2, label="L2 error, (no Stab)")
-plot!(h[start:end], arr_h1_1_nostab[start:end], marker=:s, lw=2, label="H1 error, (no Stab)")
+# plot(
+#     0,
+#     title = "Convergence of Poisson Solver",
+#     xlabel = "Mesh size h",
+#     ylabel = "Error",
+#     titlefont = 16,
+#     guidefont = 14,
+#     tickfont = 12
+# )
+# plot!(h[start:end], arr_l2_1_stab[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 error (stab)")
+# plot!(h[start:end], arr_h1_1_stab[start:end], marker=:o, lw=2, label="H1 error, (Stab)")
+# plot!(h[start:end], arr_l2_1_nostab[start:end], marker=:s, lw=2, label="L2 error, (no Stab)")
+# plot!(h[start:end], arr_h1_1_nostab[start:end], marker=:s, lw=2, label="H1 error, (no Stab)")
 
-# # Legger til aksetitler og tittel
-# xlabel!("Mesh size h")
-# ylabel!("Error")
-title!("Convergence of Poisson Solver")
+# # # Legger til aksetitler og tittel
+# # xlabel!("Mesh size h")
+# # ylabel!("Error")
+# title!("Convergence of Poisson Solver")
 
 
 
