@@ -207,7 +207,7 @@ function logplot(x, yarr, start, stop, title, xlabel, ylabel, labels)
 end
   
 # cut FEM stokes solver:
-function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
+function stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
       """
       Using a stabilized Nitsche ficticious domain method as decribed by Massing and Larson, Logg and Rognes. Using P2-P1 Taylor-Hood elements.  
       n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
@@ -287,15 +287,16 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
       h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
       
       l1(v) = ∫(f ⋅ v)dΩ
-      l2(v) = ∫(-1* (n_Γd ⋅ ε(v)) ⋅ ud + γ/h ⋅ v ⋅ ud )dΓd
-      l3(q) = ∫(n_Γd ⋅ ud *q)dΓd
+      l2(v) = ∫(-1* (n_Γd ⋅ ε(v)) ⋅ ud)dΓd 
+      l3(v) = ∫(γ/h ⋅ v ⋅ ud )dΓd
+      l4(q) = ∫(n_Γd ⋅ ud *q)dΓd
   
       if stabilize
           A((u,p),(v,q)) =(a(u, v) + b(v, p) + b(u, q) 
           + gu(u,v)
           - gp(p, q)
           )
-          L((v, q)) = l1(v) + l2(v) + l3(q)
+          L((v, q)) = l1(v) + l2(v) + l3(v) + l4(q)
           op = AffineFEOperator(A,L,X,Y)
           uh, ph = solve(op)
       else
@@ -399,7 +400,6 @@ function stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1,
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
-
 
 function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
       """
@@ -575,7 +575,7 @@ function nonlinear_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, �
     # and then the Newton multifield system is assembled as in the Navier Stokes notebook...
     res((u,p),(v,q)) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ + ∫(-(∇⋅v)*p )dΩ - ∫(-(∇⋅u)*q )dΩ - ∫(f ⋅ v)dΩ    #a(u, v)  + b(v, p) - b(u, q) - l(v)       # bytte til epsilon her, og legge til uttrykkene for b(u, q), b(v, p)
     jac((u, p), (du, dp), (v, q)) =  b(v, dp) - b(du, q) + da(u, du, v)
-
+    # her har det ikke noe å si om jeg plusser eller trekker fra b(u, q) siden det ikke er lagt til noe annet ledd (pga strong dirichlet)
     op = FEOperator(res, jac, X, Y)
 
     # non-linear phase
@@ -601,7 +601,6 @@ function nonlinear_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, �
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 
-  
 function convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save = false)
   #"""function to calculate convergence of the poisson solver, or the stokes solver, with or without stabilization"""
   calc_condition = false 
