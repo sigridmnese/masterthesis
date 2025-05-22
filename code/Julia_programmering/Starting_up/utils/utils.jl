@@ -601,6 +601,243 @@ function nonlinear_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, �
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 
+function p_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
+       """
+    Fitted FEM, non-linear stokes (p-stokes). Using P2-P1 Taylor-Hood elements.  
+    n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
+    u_exact: exact solution for method of manufactured solutions
+    order: order of polynomial degree. 
+    f: lhs for first term, -Δ u_ex + ∇p = f
+    g: lhs for second term u = g
+    geometry: optional between "Circle", "Flower", "Heart", "Glacier".
+    stabilize: wheather to add the stabilization term or not
+    δ: perturbation of cut
+    """
+    # Define background mesh
+    domain = (0,1,0,1)
+    partition = (n,n)
+    model = CartesianDiscreteModel(domain, partition)    
+
+    labels = get_face_labeling(model)
+    
+    # alle grensetagsene får dirichlet = g
+    add_tag_from_tags!(labels, "dirig", [1, 2, 3, 4, 5, 6, 7, 8])
+    order = 2
+    reffeᵤ = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+    reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
+
+    # taylor hood elements
+    V = TestFESpace(model,reffeᵤ,labels=labels,dirichlet_tags="dirig",conformity=:H1)
+    Q = TestFESpace(model,reffeₚ,conformity=:L2,constraint=:zeromean)
+    Y = MultiFieldFESpace([V,Q])
+  
+    U = TrialFESpace(V,ud)
+    P = TrialFESpace(Q)
+    X = MultiFieldFESpace([U,P])
+
+    degree = order
+    Ω = Triangulation(model)
+    dΩ = Measure(Ω,degree)
+    
+    println(sum( ∫( p_exact) * dΩ ))
+
+    l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
+    h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
+    
+    # fra klassisk Stokes FEM, så er det kun herfra og ned som er endret:)
+    nu0 = 1
+    ϵ_0 = 1e-6
+    
+    a(u, v) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ
+    b(v, p) = ∫(-(∇⋅v)*p )dΩ
+    l(v) = ∫(f ⋅ v)dΩ
+
+    # dflux calculated the same way as in the notebook p-Laplace...
+    dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
+
+    # and introduced in the same way as in the notebook p-Laplace in the bilinear form a...
+    da(u, du, v) = ∫(∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ
+    
+    # and then the Newton multifield system is assembled as in the Navier Stokes notebook...
+    res((u,p),(v,q)) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ + ∫(-(∇⋅v)*p )dΩ - ∫(-(∇⋅u)*q )dΩ - ∫(f ⋅ v)dΩ    #a(u, v)  + b(v, p) - b(u, q) - l(v)       # bytte til epsilon her, og legge til uttrykkene for b(u, q), b(v, p)
+    jac((u, p), (du, dp), (v, q)) =  b(v, dp) - b(du, q) + da(u, du, v)
+
+    op = FEOperator(res, jac, X, Y)
+
+    # non-linear phase
+    nls = NLSolver(
+    show_trace=true, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+    solver = FESolver(nls)
+
+    (uh, ph) = solve(solver, op)
+
+    errp = p_exact - ph
+    erru = u_exact - uh
+    
+    # condition number
+    #if calc_condition
+    #  condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
+    #else
+    condition_numb = 1
+    
+  
+    if save
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+    end
+    return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
+end
+
+# cut FEM for p-stokes:
+function p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
+       """
+    Unfitted FEM with Nitsche boundary imposition, non-linear stokes (p-stokes).Using P2-P1 Taylor-Hood elements.  
+    n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
+    u_exact: exact solution for method of manufactured solutions
+    order: order of polynomial degree. 
+    f: lhs for first term, -Δ u_ex + ∇p = f
+    g: lhs for second term u = g
+    geometry: optional between "Circle", "Flower", "Heart", "Glacier".
+    stabilize: wheather to add the stabilization term or not
+    δ: perturbation of cut
+    """
+    # Define background mesh
+      partition = (n, n)
+      dim = length(partition)
+      a = 1.2
+      pmin = Point(-a + δ, -a + δ)
+      pmax = Point(a + δ, a + δ)
+      bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
+      # mesh size
+      h = (pmax-pmin)[1]/partition[1]
+  
+      # defining ghost penalty constants
+      βu = βu0 *nu/(h^2)
+      βp = βp0/h
+  
+      geo = create_geometry(geometry, n)
+      # Define active and physical mesh
+      cutgeo = cut(bgmodel,geo)
+      cutgeo_facets = cut_facets(bgmodel,geo)
+      Ω_bg = Triangulation(bgmodel)
+      Ω_act = Triangulation(cutgeo, ACTIVE)
+      Ω = Triangulation(cutgeo, PHYSICAL)
+  
+      # Embedded boundary
+      # Dirichlet conditions on u
+      Γd = EmbeddedBoundary(cutgeo)
+      n_Γd = get_normal_vector(Γd)
+  
+      # Get ghost penalty facets
+      Fg = GhostSkeleton(cutgeo)
+      n_Fg = get_normal_vector(Fg)
+  
+      # Define measures
+      degree = 2*order
+      dΩ = Measure(Ω,degree)
+      dΓd = Measure(Γd, degree)
+      dFg = Measure(Fg, degree)
+  
+      # Define function spaces 
+      reffe_u  = ReferenceFE(lagrangian,VectorValue{dim, Float64},order)
+      reffe_p = ReferenceFE(lagrangian,Float64, order - 1)
+  
+      V = TestFESpace(Ω_act, reffe_u,  conformity=:H1)
+      Q = TestFESpace(Ω_act, reffe_p, conformity=:H1, constraint=:zeromean)
+  
+      U = TrialFESpace(V)
+      P = TrialFESpace(Q)
+  
+      X = MultiFieldFESpace([U, P])
+      Y = MultiFieldFESpace([V, Q])
+    
+    #println(sum( ∫( p_exact) * dΩ ))
+
+    l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
+    h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
+    
+    # fra klassisk Stokes FEM, så er det kun herfra og ned som er endret:)
+    nu0 = 1
+    ϵ_0 = 1e-6
+    γ = 10*2*2
+    # weak formulation components    
+    a(u, v) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘∇(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ u)+(γ/h * (u ⋅ v)))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
+    b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme fom før. 
+    l1(v) = ∫(f ⋅ v)dΩ
+    l2(v) = ∫(-(n_Γd ⋅ (flux∘∇(v))) ⋅ ud)dΓd    # har brukt ud som dirichlet grense
+    l3(v) = ∫(γ/h * (ud ⋅ v))dΓd
+    l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd
+    # dflux calculated the same way as in the notebook p-Laplace...
+    dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
+    # and introduced in the same way as in the notebook p-Laplace in the bilinear form a...
+    #da(u, du, v) = ∫(∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ
+   
+    da(u, du, v) = ∫( ∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(∇(du), ∇(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ du)+(γ/h * (du ⋅ v)))dΓd       
+    
+    # and then the Newton multifield system is assembled as in the Navier Stokes notebook...
+    # når lineærformene differensieres med hensyn på u og p så forsvinner de
+    #res((u,p),(v,q)) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘∇(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ u)+(γ/h * (u ⋅ v)))dΓd + ∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd - ∫(-1*(∇ ⋅ u*q))dΩ - ∫((n_Γd ⋅ u) * q)dΓd - ∫(f ⋅ v)dΩ - ∫(-(n_Γd ⋅( flux∘∇(v))) ⋅ ud)dΓd - ∫(γ/h * (ud ⋅ v))dΓd - ∫((n_Γd ⋅ ud) * q)dΓd#a(u, v) + b(v, p) - b(u, q) -l1(v) -l2(v) -l3(v) -l4(q)
+    #jac((u, p), (du, dp), (v, q)) = ∫(-1*(∇ ⋅ v*dp))dΩ + ∫((n_Γd ⋅ v) * dp)dΓd - ∫(-1*(∇ ⋅ du*q))dΩ - ∫((n_Γd ⋅ du) * q)dΓd + ∫( ∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(∇(du), ∇(u))) )⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ du)+(γ/h *(du ⋅ v)))dΓd#b(v, dp) - b(du, q) + da(u, du, v)
+    
+    gu(u,v) = ( ∫( (β_1*h)*jump(n_Fg ⋅ ∇(u))⋅jump(n_Fg⋅ ∇(v)) )dFg 
+              +  
+                 ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
+  
+    gp(p, q) = (∫((β_3*h^3)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)
+
+    # res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) - l1(v) -l2(v) -l3(v) -l4(q)
+    # jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v)
+
+    if stabilize
+      res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) + gu(u, v) - gp(p, q) -l1(v) -l2(v) -l3(v) -l4(q)
+      jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v) + gu(du, v) - gp(dp, q) 
+      
+      op = FEOperator(res, jac, X, Y)
+
+      # non-linear phase
+      nls = NLSolver(
+      show_trace=false, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      solver = FESolver(nls)
+
+      (uh, ph) = solve(solver, op)
+    else
+      res_nostab((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) - l1(v) -l2(v) -l3(v) -l4(q)
+      jac_nostab((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v)
+      
+      op = FEOperator(res_nostab, jac_nostab, X, Y)
+
+      # non-linear phase
+      nls = NLSolver(
+      show_trace=false, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      solver = FESolver(nls)
+
+      (uh, ph) = solve(solver, op)
+    end
+
+    #op = FEOperator(res, jac, X, Y)
+
+    # non-linear phase
+    #nls = NLSolver(
+    #show_trace=true, method=:newton, linesearch=BackTracking())      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+    #solver = FESolver(nls)
+
+    #(uh, ph) = solve(solver, op)
+
+    errp = p_exact - ph
+    erru = u_exact - uh
+    
+    # condition number
+    # if calc_condition
+    #   #condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
+    # else
+    #   condition_numb = 1
+    # end
+    condition_numb = 1
+    if save
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+    end
+    return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
+end
+
 function convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save = false)
   #"""function to calculate convergence of the poisson solver, or the stokes solver, with or without stabilization"""
   calc_condition = false 
@@ -636,7 +873,7 @@ function convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometr
 end
 
 function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
-    calc_condition = true
+    calc_condition = false
     arr_δ = zeros(Float64, M-1)
     arr_l2u = zeros(Float64, M-1)
     arr_h1u = zeros(Float64, M-1)
@@ -647,11 +884,14 @@ function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, 
     for i = 1:(M-1)
         δ = i/n/M *1.1/ sqrt(2)
         
-        elapsed_time, solver_result = let
-            t, val = @timed solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
-            (val, t)
-        end
-        uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver_result
+        #elapsed_time, solver_result = let
+        #    t, val = @timed solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
+        #    (val, t)
+        #end
+        #uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver_result
+        uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
+        
+
         save = false
         arr_δ[i] = δ
         arr_l2u[i] = l2_u
@@ -661,8 +901,8 @@ function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, 
         arr_cond[i] = condition_numb
 
         if i % 100 == 0
-            println("$i: Solved system in $elapsed_time seconds.")
-            save = true     #lagrer løsningen hver 100nde gang
+            println("$i") #: Solved system in $elapsed_time seconds.")
+            #save = true     #lagrer løsningen hver 100nde gang
         end
     end
     return arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond
