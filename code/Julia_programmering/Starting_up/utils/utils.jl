@@ -689,69 +689,68 @@ end
 
 # cut FEM for p-stokes:
 function p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
-       """
+    """
     Unfitted FEM with Nitsche boundary imposition, non-linear stokes (p-stokes).Using P2-P1 Taylor-Hood elements.  
     n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
     u_exact: exact solution for method of manufactured solutions
     order: order of polynomial degree. 
-    f: lhs for first term, -Δ u_ex + ∇p = f
+    f: lhs for first term, -∇ (ν ∇(u_ex) + ∇p = f
     g: lhs for second term u = g
     geometry: optional between "Circle", "Flower", "Heart", "Glacier".
     stabilize: wheather to add the stabilization term or not
     δ: perturbation of cut
     """
     # Define background mesh
-      partition = (n, n)
-      dim = length(partition)
-      a = 1.2
-      pmin = Point(-a + δ, -a + δ)
-      pmax = Point(a + δ, a + δ)
-      bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
-      # mesh size
-      h = (pmax-pmin)[1]/partition[1]
+    partition = (n, n)
+    dim = length(partition)
+    a = 1.2
+    pmin = Point(-a + δ, -a + δ)
+    pmax = Point(a + δ, a + δ)
+    bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
+    # mesh size
+    h = (pmax-pmin)[1]/partition[1]
   
-      # defining ghost penalty constants
-      βu = βu0 *nu/(h^2)
-      βp = βp0/h
+    # defining ghost penalty constants
+    βu = βu0 *nu/(h^2)
+    βp = βp0/h
   
-      geo = create_geometry(geometry, n)
-      # Define active and physical mesh
-      cutgeo = cut(bgmodel,geo)
-      cutgeo_facets = cut_facets(bgmodel,geo)
-      Ω_bg = Triangulation(bgmodel)
-      Ω_act = Triangulation(cutgeo, ACTIVE)
-      Ω = Triangulation(cutgeo, PHYSICAL)
+    geo = create_geometry(geometry, n)
+    # Define active and physical mesh
+    cutgeo = cut(bgmodel,geo)
+    cutgeo_facets = cut_facets(bgmodel,geo)
+    Ω_bg = Triangulation(bgmodel)
+    Ω_act = Triangulation(cutgeo, ACTIVE)
+    Ω = Triangulation(cutgeo, PHYSICAL)
   
-      # Embedded boundary
-      # Dirichlet conditions on u
-      Γd = EmbeddedBoundary(cutgeo)
-      n_Γd = get_normal_vector(Γd)
+    # Embedded boundary
+    # Dirichlet conditions on u
+    Γd = EmbeddedBoundary(cutgeo)
+    n_Γd = get_normal_vector(Γd)
   
-      # Get ghost penalty facets
-      Fg = GhostSkeleton(cutgeo)
-      n_Fg = get_normal_vector(Fg)
+    # Get ghost penalty facets
+    Fg = GhostSkeleton(cutgeo)
+    n_Fg = get_normal_vector(Fg)
   
-      # Define measures
-      degree = 2*order
-      dΩ = Measure(Ω,degree)
-      dΓd = Measure(Γd, degree)
-      dFg = Measure(Fg, degree)
+    # Define measures
+    degree = 2*order
+    dΩ = Measure(Ω,degree)
+    dΓd = Measure(Γd, degree)
+    dFg = Measure(Fg, degree)
   
-      # Define function spaces 
-      reffe_u  = ReferenceFE(lagrangian,VectorValue{dim, Float64},order)
-      reffe_p = ReferenceFE(lagrangian,Float64, order - 1)
+    # Define function spaces 
+    reffe_u  = ReferenceFE(lagrangian,VectorValue{dim, Float64},order)
+    reffe_p = ReferenceFE(lagrangian,Float64, order - 1)
   
-      V = TestFESpace(Ω_act, reffe_u,  conformity=:H1)
-      Q = TestFESpace(Ω_act, reffe_p, conformity=:H1, constraint=:zeromean)
+    V = TestFESpace(Ω_act, reffe_u,  conformity=:H1)
+    Q = TestFESpace(Ω_act, reffe_p, conformity=:H1, constraint=:zeromean)
   
-      U = TrialFESpace(V)
-      P = TrialFESpace(Q)
+    U = TrialFESpace(V)
+    P = TrialFESpace(Q)
   
-      X = MultiFieldFESpace([U, P])
-      Y = MultiFieldFESpace([V, Q])
+    X = MultiFieldFESpace([U, P])
+    Y = MultiFieldFESpace([V, Q])
     
     #println(sum( ∫( p_exact) * dΩ ))
-
     l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
     h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
     
@@ -783,6 +782,10 @@ function p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, 
                  ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
   
     gp(p, q) = (∫((β_3*h^3)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)
+
+    dgu(u, du, v) = ( ∫( (β_1*h)*jump(n_Fg ⋅ ∇(u))⋅jump(n_Fg⋅ ∇(v)) )dFg 
+              +  
+                 ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
 
     # res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) - l1(v) -l2(v) -l3(v) -l4(q)
     # jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v)
@@ -833,7 +836,10 @@ function p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, 
     # end
     condition_numb = 1
     if save
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+        writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+        writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
+        #writevtk(n_Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
