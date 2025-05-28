@@ -21,15 +21,16 @@ A = 1
 # endrer nå alle symbolder før uder det er nabla til epsilon...
 
 # non-linear stokes problem
-u_exact(x) =  VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1])) #Qbytte til sin/cos-uttrykk  VectorValue(-x[2], x[1])
+u_exact(x) =  VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1])) #bytte til sin/cos-uttrykk  VectorValue(-x[2], x[1])
 p_exact(x) = sin(2*π*x[1])*cos(2*π*x[2])            
-flux(∇v) = nu0*(ϵ_0 + norm(∇v)^2)^((r-2)/2) * ∇v 
-f(x) =  -divergence(flux∘∇(u_exact))(x) + ∇(p_exact)(x)      # prøver å endre f her...
+flux(∇u) = nu0*(ϵ_0 + norm(∇u)^2)^((r-2)/2) * ∇u 
+viskositet(∇u) = nu0*(ϵ_0 + norm(∇u)^2)^((r-2)/2)
+f(x) =  -divergence(flux∘ε(u_exact))(x) + ∇(p_exact)(x)      # prøver å endre f her...
 ud(x) = u_exact(x)
 #1/2 * A^(1-r) * (1/2 * norm(du, 2))^((r-2)/2) * ε(du)
 
 domain = "circle"
-n = 32
+n = 16
 γ = 10* 2*2 
 β_1 = 1
 β_2 = 1
@@ -111,10 +112,10 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     ϵ_0 = 1e-6
     γ = 10*2*2
     # weak formulation components    
-    a(u, v) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘∇(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ u)+(γ/h * (u ⋅ v)))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
+    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u)+(γ/h * (u ⋅ v)))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
     b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme fom før. 
     l1(v) = ∫(f ⋅ v)dΩ
-    l2(v) = ∫(-(n_Γd ⋅ (flux∘∇(v))) ⋅ ud)dΓd    # har brukt ud som dirichlet grense
+    l2(v) = ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd    # har brukt ud som dirichlet grense
     l3(v) = ∫(γ/h * (ud ⋅ v))dΓd
     l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd
     # dflux calculated the same way as in the notebook p-Laplace...
@@ -122,14 +123,14 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     # and introduced in the same way as in the notebook p-Laplace in the bilinear form a...
     #da(u, du, v) = ∫(∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ
    
-    da(u, du, v) = ∫( ∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(∇(du), ∇(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ du)+(γ/h * (du ⋅ v)))dΓd       
+    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(du), ε(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(γ/h * (du ⋅ v)))dΓd       
     
     # and then the Newton multifield system is assembled as in the Navier Stokes notebook...
     # når lineærformene differensieres med hensyn på u og p så forsvinner de
     #res((u,p),(v,q)) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘∇(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ u)+(γ/h * (u ⋅ v)))dΓd + ∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd - ∫(-1*(∇ ⋅ u*q))dΩ - ∫((n_Γd ⋅ u) * q)dΓd - ∫(f ⋅ v)dΩ - ∫(-(n_Γd ⋅( flux∘∇(v))) ⋅ ud)dΓd - ∫(γ/h * (ud ⋅ v))dΓd - ∫((n_Γd ⋅ ud) * q)dΓd#a(u, v) + b(v, p) - b(u, q) -l1(v) -l2(v) -l3(v) -l4(q)
     #jac((u, p), (du, dp), (v, q)) = ∫(-1*(∇ ⋅ v*dp))dΩ + ∫((n_Γd ⋅ v) * dp)dΓd - ∫(-1*(∇ ⋅ du*q))dΩ - ∫((n_Γd ⋅ du) * q)dΓd + ∫( ∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(∇(du), ∇(u))) )⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ du)+(γ/h *(du ⋅ v)))dΓd#b(v, dp) - b(du, q) + da(u, du, v)
     
-    gu(u,v) = ( ∫( (β_1*h)*jump(n_Fg ⋅ ∇(u))⋅jump(n_Fg⋅ ∇(v)) )dFg 
+    gu(u,v) = ( ∫((β_1*h)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg 
               +  
                  ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
   
@@ -188,17 +189,16 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     # end
     condition_numb = 1
     if save
-        writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
-        writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
+        #writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+        #writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
         #writevtk(n_Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "flux" => flux∘ε(u_exact)]) #, "erru" => erru]) 
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 
-
 stabilize = true
-δ = 0#(2000-1)/2000 *1.2/n            # perturbation of the cut. One element is 2* 1.2/n
+δ = 0 #(2000-1)/2000 *1.2/n            # perturbation of the cut. One element is 2* 1.2/n
 save = true
 calc_condition = false
 order = 2
@@ -218,37 +218,36 @@ nu = 1
 
 ################################# p stokes fitted FEM ##############################
 # numb_it = 6
-# solver = p_stokes_cutFEM
+# solver = p_stokes_cutFEM_symmetric
 # uarr_l2, uarr_h1, parr_l2, parr_h1, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
-
+# stabilize = false
+# uarr_l2_1_nostab, uarr_h1_1_nostab, parr_l2_1_nostab, parr_h1_1_nostab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 # plot(
 #     0,
 #     title = "Convergence of p-Stokes FEM",
 #     xlabel = "Mesh size h",
-#     ylabel = "Velocity error",
+#     ylabel = "Pressure error",
 #     titlefont = 16,
 #     guidefont = 14,
 #     tickfont = 12
 # )
-# plot!(h, uarr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2")
-# plot!(h, uarr_h1, marker=:o, lw=2, label="H1")
+# plot!(h, parr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
+# plot!(h, parr_h1, marker=:o, lw=2, label="H1 stabilized")
 # xlabel!("Mesh size h")
 # ylabel!("Error")
 # title!("Convergence of p-stokes cutFEM")
 
-#plot!(h, uarr_l2_1_nostab, marker=:s, lw=2, label="L2 non-stabilized")
-#plot!(h, uarr_h1_1_nostab, marker=:s, lw=2, label="H1 non-stabilized")
+# plot!(h, parr_l2_1_nostab, marker=:s, lw=2, label="L2 non-stabilized")
+# plot!(h, parr_h1_1_nostab, marker=:s, lw=2, label="H1 non-stabilized")
 
 # # # Legger til aksetitler og tittel
 
 ##################### herfra prøver jeg å løse ikke-lineær stokes ######################
 # med de samme parametrene som over
-uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
-
+uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
 
 ################################# p stokes cut FEM ##############################
-
 #uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
 
 # now, doing a geometry robustness test
@@ -286,16 +285,17 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # #Indeksene der vi vil ha markører (hver 100.)
 # idx = 1:100:1999
 # id2 = 51:100:1999
-# scatter!(arr_δ[idx], arr_l2p[idx], label=:"", marker=:circle, ms=4)
-# plot!(arr_δ[start:end], arr_l2p[start:end],  yaxis=:log, lw=2, label="L2 stabilized")
-# scatter!(arr_δ[id2], arr_l2p_nostab[id2], label=:"", marker=:s, ms=4)
-# plot!(arr_δ_nostab[start:end], arr_l2p_nostab[start:end], yaxis=:log, lw=2, label="L2 non-stabilized")
-# scatter!(arr_δ[idx], arr_h1p[idx], label=:"", marker=:circle, ms=4)
-# plot!(arr_δ[start:end], arr_h1p[start:end], yaxis=:log, lw=2, label="H1 stabilized")
-# scatter!(arr_δ[id2], arr_h1p_nostab[id2], label=:"", marker=:s, ms=4)
-# plot!(arr_δ_nostab[start:end], arr_h1p_nostab[start:end], yaxis=:log, lw=2, label="H1 non-stabilized")
+# start = 1
+# #scatter!(arr_δ[idx], arr_l2p[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_l2u[start:end],  yaxis=:log, lw=2, label="L2 stabilized")
+# #scatter!(arr_δ[id2], arr_l2p_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ_nostab[start:end], arr_l2u_nostab[start:end], yaxis=:log, lw=2, label="L2 non-stabilized")
+# #scatter!(arr_δ[idx], arr_h1p[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_h1u[start:end], yaxis=:log, lw=2, label="H1 stabilized")
+# #scatter!(arr_δ[id2], arr_h1p_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ_nostab[start:end], arr_h1u_nostab[start:end], yaxis=:log, lw=2, label="H1 non-stabilized")
 # xlabel!("Perturbation δ")
-# ylabel!("Pressure error")
+# ylabel!("Velocity error")
 # title!("Sensitivity analysis of p-Stokes cutFEM")
 
 # #condition number plot:
@@ -308,8 +308,8 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 #     guidefont = 14,
 #     tickfont = 12
 # )
-#scatter!(arr_δ[idx], arr_cond[idx], label=:"", marker=:circle, ms=4)
-#plot!(arr_δ[start:end], arr_cond[start:end], yaxis=:log, label = "Stabilized")
-#scatter!(arr_δ[id2], arr_cond_nostab[id2], label=:"", marker=:s, ms=4)
-#plot!(arr_δ[start:end], arr_cond_nostab[start:end],yaxis=:log, label = "Not stabilized")
+# #scatter!(arr_δ[idx], arr_cond[idx], label=:"", marker=:circle, ms=4)
+# plot!(arr_δ[start:end], arr_cond[start:end], yaxis=:log, label = "Stabilized")
+# scatter!(arr_δ[id2], arr_cond_nostab[id2], label=:"", marker=:s, ms=4)
+# plot!(arr_δ[start:end], arr_cond_nostab[start:end],yaxis=:log, label = "Not stabilized")
 

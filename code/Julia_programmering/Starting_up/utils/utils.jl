@@ -40,6 +40,15 @@ function jump_nn(u,n)
     return ( (n.plus⋅∇∇(u).plus)⋅ n.plus - (n.minus ⋅ ∇∇(u).minus) ⋅ n.minus )
 end
 
+function jump_nn_symm(u,n)
+    εu_minus = ε(u).minus
+    εεu_minus = ∇(εu_minus)
+    εu_plus = ε(u).plus
+    εεu_plus = ∇(εu_plus)
+
+    return ( n.plus ⋅ (n.plus⋅εεu_plus) - n.minus ⋅ (n.minus ⋅ εεu_minus))       # andre ordens hopp... Forklare dette skikkelig. 
+end
+
 # cut FEM poisson solver:
 function poisson_solver(n, u_exact, lhs, order, geometry, γd, γg1, γg3, stabilize, δ, save = false)
     """
@@ -906,7 +915,7 @@ function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, 
         arr_h1p[i] = h1_semi_p
         arr_cond[i] = condition_numb
 
-        if i % 100 == 0
+        if i % 10 == 0
             println("$i") #: Solved system in $elapsed_time seconds.")
             #save = true     #lagrer løsningen hver 100nde gang
         end
