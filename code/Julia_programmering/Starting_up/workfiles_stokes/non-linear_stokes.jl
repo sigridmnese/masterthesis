@@ -11,241 +11,76 @@ using Logging
 using LoggingExtras
 
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\utils\\utils.jl")
+include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\workfiles_stokes\\testing_non-linear_stokes.jl")
 
 ##### Divergensfri stokes løser ####
 # hva hvis det ikke er divergensfritt?
-nu0 = 1
+nu0 =  1   # klarer ikke mindre enn 0.01 og klarer heller ikke større enn 100 (størrelsesordener)
 r = 4/3
 A = 1
 ϵ_0 = 1e-6          # hadde glemt å legge inn en epsilon0 i flux-termen. Newton-løseren divergerte
 # endrer nå alle symbolder før uder det er nabla til epsilon...
 
-# non-linear stokes problem
-u_exact(x) =  VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1])) #bytte til sin/cos-uttrykk  VectorValue(-x[2], x[1])
-p_exact(x) = sin(2*π*x[1])*cos(2*π*x[2])            
+# non-linear stokes problem denne løsninen fungerer klink: VectorValue(x[2]^2, -x[1])# bør da for søren være mulig å kjøre denne likningen på en fitted mesh også.???
+u_exact(x) =  VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1]))#VectorValue(2*x[1] + exp(x[1]/2) * cos(2*π*x[2]), -2*x[2] + exp(x[2]/2) * sin(2*π*x[1])) #bytte til sin/cos-uttrykk  VectorValue(-x[2], x[1])
+p_exact(x) = sin(2*π*x[1])*cos(2*π*x[2])
 flux(∇u) = nu0*(ϵ_0 + norm(∇u)^2)^((r-2)/2) * ∇u 
-viskositet(∇u) = nu0*(ϵ_0 + norm(∇u)^2)^((r-2)/2)
+viskositet(∇u) = nu0^(1-r)*(ϵ_0^2 + norm(∇u)^2)^((r-2)/2)
+dviskositet(∇u, ∇du) = nu0^(1-r) *(ϵ_0^2 + ∇u⋅ ∇u)^((r-4)/2)*(∇u⊙∇du) *(r-2)
 f(x) =  -divergence(flux∘ε(u_exact))(x) + ∇(p_exact)(x)      # prøver å endre f her...
 ud(x) = u_exact(x)
 #1/2 * A^(1-r) * (1/2 * norm(du, 2))^((r-2)/2) * ε(du)
 
-domain = "circle"
-n = 16
-γ = 10* 2*2 
-β_1 = 1
-β_2 = 1
-β_3 = 0.1
-γ=10*2*2
-
 g = VectorValue(0.0, 0.0)
-
-# limer inn p-stokes-cutfem her og endrer til symmetrisk gradient
-# cut FEM for p-stokes:
-function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
-    """
-    Unfitted FEM with Nitsche boundary imposition, non-linear stokes (p-stokes).Using P2-P1 Taylor-Hood elements.  
-    n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
-    u_exact: exact solution for method of manufactured solutions
-    order: order of polynomial degree. 
-    f: lhs for first term, -∇ (ν ∇(u_ex) + ∇p = f
-    g: lhs for second term u = g
-    geometry: optional between "Circle", "Flower", "Heart", "Glacier".
-    stabilize: wheather to add the stabilization term or not
-    δ: perturbation of cut
-    """
-    # Define background mesh
-    partition = (n, n)
-    dim = length(partition)
-    a = 1.2
-    pmin = Point(-a + δ, -a + δ)
-    pmax = Point(a + δ, a + δ)
-    bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
-    # mesh size
-    h = (pmax-pmin)[1]/partition[1]
-  
-    # defining ghost penalty constants
-    βu = βu0 *nu/(h^2)
-    βp = βp0/h
-  
-    geo = create_geometry(geometry, n)
-    # Define active and physical mesh
-    cutgeo = cut(bgmodel,geo)
-    cutgeo_facets = cut_facets(bgmodel,geo)
-    Ω_bg = Triangulation(bgmodel)
-    Ω_act = Triangulation(cutgeo, ACTIVE)
-    Ω = Triangulation(cutgeo, PHYSICAL)
-  
-    # Embedded boundary
-    # Dirichlet conditions on u
-    Γd = EmbeddedBoundary(cutgeo)
-    n_Γd = get_normal_vector(Γd)
-  
-    # Get ghost penalty facets
-    Fg = GhostSkeleton(cutgeo)
-    n_Fg = get_normal_vector(Fg)
-  
-    # Define measures
-    degree = 2*order
-    dΩ = Measure(Ω,degree)
-    dΓd = Measure(Γd, degree)
-    dFg = Measure(Fg, degree)
-  
-    # Define function spaces 
-    reffe_u  = ReferenceFE(lagrangian,VectorValue{dim, Float64},order)
-    reffe_p = ReferenceFE(lagrangian,Float64, order - 1)
-  
-    V = TestFESpace(Ω_act, reffe_u,  conformity=:H1)
-    Q = TestFESpace(Ω_act, reffe_p, conformity=:H1, constraint=:zeromean)
-  
-    U = TrialFESpace(V)
-    P = TrialFESpace(Q)
-  
-    X = MultiFieldFESpace([U, P])
-    Y = MultiFieldFESpace([V, Q])
-    
-    #println(sum( ∫( p_exact) * dΩ ))
-    l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
-    h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
-    
-    # fra klassisk Stokes FEM, så er det kun herfra og ned som er endret:)
-    nu0 = 1
-    ϵ_0 = 1e-6
-    γ = 10*2*2
-    # weak formulation components    
-    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u)+(γ/h * (u ⋅ v)))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
-    b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme fom før. 
-    l1(v) = ∫(f ⋅ v)dΩ
-    l2(v) = ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd    # har brukt ud som dirichlet grense
-    l3(v) = ∫(γ/h * (ud ⋅ v))dΓd
-    l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd
-    # dflux calculated the same way as in the notebook p-Laplace...
-    dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
-    # and introduced in the same way as in the notebook p-Laplace in the bilinear form a...
-    #da(u, du, v) = ∫(∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ
-   
-    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(du), ε(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(γ/h * (du ⋅ v)))dΓd       
-    
-    # and then the Newton multifield system is assembled as in the Navier Stokes notebook...
-    # når lineærformene differensieres med hensyn på u og p så forsvinner de
-    #res((u,p),(v,q)) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘∇(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ u)+(γ/h * (u ⋅ v)))dΓd + ∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd - ∫(-1*(∇ ⋅ u*q))dΩ - ∫((n_Γd ⋅ u) * q)dΓd - ∫(f ⋅ v)dΩ - ∫(-(n_Γd ⋅( flux∘∇(v))) ⋅ ud)dΓd - ∫(γ/h * (ud ⋅ v))dΓd - ∫((n_Γd ⋅ ud) * q)dΓd#a(u, v) + b(v, p) - b(u, q) -l1(v) -l2(v) -l3(v) -l4(q)
-    #jac((u, p), (du, dp), (v, q)) = ∫(-1*(∇ ⋅ v*dp))dΩ + ∫((n_Γd ⋅ v) * dp)dΓd - ∫(-1*(∇ ⋅ du*q))dΩ - ∫((n_Γd ⋅ du) * q)dΓd + ∫( ∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(∇(du), ∇(u))) )⋅ v) + (-(n_Γd ⋅ (flux∘∇(v))) ⋅ du)+(γ/h *(du ⋅ v)))dΓd#b(v, dp) - b(du, q) + da(u, du, v)
-    
-    gu(u,v) = ( ∫((β_1*h)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg 
-              +  
-                 ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
-  
-    gp(p, q) = (∫((β_3*h^3)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)
-
-    dgu(u, du, v) = ( ∫( (β_1*h)*jump(n_Fg ⋅ ∇(u))⋅jump(n_Fg⋅ ∇(v)) )dFg 
-              +  
-                 ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
-
-    # res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) - l1(v) -l2(v) -l3(v) -l4(q)
-    # jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v)
-
-    if stabilize
-      res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) + gu(u, v) - gp(p, q) -l1(v) -l2(v) -l3(v) -l4(q)
-      jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v) + gu(du, v) - gp(dp, q) 
-      
-      op = FEOperator(res, jac, X, Y)
-
-      # non-linear phase
-      nls = NLSolver(
-      show_trace=false, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
-      solver = FESolver(nls)
-
-      (uh, ph) = solve(solver, op)
-    else
-      res_nostab((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) - l1(v) -l2(v) -l3(v) -l4(q)
-      jac_nostab((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v)
-      
-      op = FEOperator(res_nostab, jac_nostab, X, Y)
-
-      # non-linear phase
-      nls = NLSolver(
-      show_trace=false, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
-      solver = FESolver(nls)
-
-      (uh, ph) = solve(solver, op)
-    end
-
-    #op = FEOperator(res, jac, X, Y)
-
-    # non-linear phase
-    #nls = NLSolver(
-    #show_trace=true, method=:newton, linesearch=BackTracking())      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
-    #solver = FESolver(nls)
-
-    #(uh, ph) = solve(solver, op)
-
-    errp = p_exact - ph
-    erru = u_exact - uh
-    
-    # condition number
-    # if calc_condition
-    #   #condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
-    # else
-    #   condition_numb = 1
-    # end
-    condition_numb = 1
-    if save
-        #writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
-        #writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
-        #writevtk(n_Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "flux" => flux∘ε(u_exact)]) #, "erru" => erru]) 
-    end
-    return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
-end
-
-stabilize = true
-δ = 0 #(2000-1)/2000 *1.2/n            # perturbation of the cut. One element is 2* 1.2/n
+n = 32
+stabilize = false
+δ = 0 #(2000-1)/2000 *1.2/n            # perturbation of the cut. One element is 2 * 1.2/n
 save = true
 calc_condition = false
 order = 2
-geometry = "circle"
+geometry = "heart"
 βu0 = 1
 γu1 = 0.1
 γu2 = 0.1
 γp = 0.1
 βp0 = 0.1
-nu = 1
 β_1 = 1
 β_2 = 1
 β_3 = 0.1
 γ=10*2*2
-#n = 128
-#uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
+nu = 1      # denne brukes ikke i p_stokes_cutfem... Alt er definert i de funksjonene med nu0? sjekk opp dette...
+uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 
 ################################# p stokes fitted FEM ##############################
 # numb_it = 6
-# solver = p_stokes_cutFEM_symmetric
+# solver = p_stokes_FEM
 # uarr_l2, uarr_h1, parr_l2, parr_h1, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
 # stabilize = false
-# uarr_l2_1_nostab, uarr_h1_1_nostab, parr_l2_1_nostab, parr_h1_1_nostab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+# # uarr_l2_1_nostab, uarr_h1_1_nostab, parr_l2_1_nostab, parr_h1_1_nostab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 # plot(
 #     0,
 #     title = "Convergence of p-Stokes FEM",
 #     xlabel = "Mesh size h",
-#     ylabel = "Pressure error",
+#     ylabel = "Velocity error",
 #     titlefont = 16,
 #     guidefont = 14,
 #     tickfont = 12
 # )
-# plot!(h, parr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
-# plot!(h, parr_h1, marker=:o, lw=2, label="H1 stabilized")
+# plot!(h, uarr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
+# plot!(h,uarr_h1, marker=:o, lw=2, label="H1 stabilized")
 # xlabel!("Mesh size h")
-# ylabel!("Error")
-# title!("Convergence of p-stokes cutFEM")
+# ylabel!("Velocity error")
+# title!("Convergence of p-stokes FEM")
 
-# plot!(h, parr_l2_1_nostab, marker=:s, lw=2, label="L2 non-stabilized")
-# plot!(h, parr_h1_1_nostab, marker=:s, lw=2, label="H1 non-stabilized")
+#plot!(h, uarr_l2_1_nostab, marker=:s, lw=2, label="L2 non-stabilized")
+#plot!(h, uarr_h1_1_nostab, marker=:s, lw=2, label="H1 non-stabilized")
 
 # # # Legger til aksetitler og tittel
 
 ##################### herfra prøver jeg å løse ikke-lineær stokes ######################
 # med de samme parametrene som over
-uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
+#uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
 
 ################################# p stokes cut FEM ##############################
 #uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save)
@@ -312,4 +147,3 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # plot!(arr_δ[start:end], arr_cond[start:end], yaxis=:log, label = "Stabilized")
 # scatter!(arr_δ[id2], arr_cond_nostab[id2], label=:"", marker=:s, ms=4)
 # plot!(arr_δ[start:end], arr_cond_nostab[start:end],yaxis=:log, label = "Not stabilized")
-

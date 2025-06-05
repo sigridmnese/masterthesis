@@ -19,6 +19,38 @@ outputfolderstokes = "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stok
             geo = AnalyticalGeometry(x -> (-R     +   (x[1])^2   +     ( 5/4 * (x[2]+0.2)   -     sqrt(abs(x[1]))  )^2   ))
             #geo = AnalyticalGeometry(x -> (x[1])^2 + (5/4 * (x[2]) - √(abs(x[1])))^2 - R)
             return geo
+        elseif lowercase(name) == "twoheartsline"
+            # Vi lager to hjerter med sentre horisontalt separert med 1.0, 
+            # begge med samme "R" og "y‐shift" som over, 
+            # og under dem en horisontal linje 3.0 enheter under hjertenes bunnspiss.
+            R      = 0.7
+            yshift = 0.2    # samme y‐forskyvning som i enkelthjerter‐funksjonen
+            d      = 0.5    # halve avstanden mellom hjertesentrene i x‐retning
+            
+            # Implicit‐funksjon for venstre hjerte (senter i x = -0.5):
+            heart1(x) = -R
+                        + (x[1] + d)^2
+                        + ( (5/4)*(x[2] + yshift) - sqrt(abs(x[1] + d)) )^2
+
+            # Implicit‐funksjon for høyre hjerte (senter i x = +0.5):
+            heart2(x) = -R
+                        + (x[1] - d)^2
+                        + ( (5/4)*(x[2] + yshift) - sqrt(abs(x[1] - d)) )^2
+
+            # Beregn hvor hjerte‐bunnspissen ligger i y‐koordinat (med R=0.7 og yshift=0.2
+            # blir bunnspissen y_bunn = -0.2).
+            y_bunn = -yshift
+
+            # Horisontal linje 3.0 enheter under hjertenes bunnspiss:
+            yline = y_bunn - 3.0   # = -0.2 - 3.0 = -3.2
+
+            # Nå ønsker vi at et punkt x=(x[1],x[2]) skal være "inni" geometrien 
+            # dersom det ligger *i minst ett* av hjertene OG *over* linjen y = yline.
+            # Union av hjertene:   f_hearts(x) = min( heart1(x), heart2(x) )
+            # Deretter klippe av mot linjen:   f_total(x) = max( f_hearts(x), yline - x[2] )
+            # Et punkt er inne akkurat når f_total(x) <= 0.
+
+            return AnalyticalGeometry(x -> heart1(x) + heart2(x) + yline - x[2])
         else
             error("$name er ikke en definert geometri!")
         end    
@@ -526,7 +558,8 @@ end
 
 #fitted FEM for p-stokes:
 function nonlinear_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
-       """
+    """
+    # implementert for symmetrisk tilfelle?
     Fitted FEM, non-linear stokes (p-stokes).Using P2-P1 Taylor-Hood elements.  
     n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
     u_exact: exact solution for method of manufactured solutions
@@ -570,8 +603,9 @@ function nonlinear_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, �
     # fra klassisk Stokes FEM, så er det kun herfra og ned som er endret:)
     nu0 = 1
     ϵ_0 = 1e-6
+    #flux∘ε
     
-    a(u, v) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ
+    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ
     b(v, p) = ∫(-(∇⋅v)*p )dΩ
     l(v) = ∫(f ⋅ v)dΩ
 
@@ -579,17 +613,17 @@ function nonlinear_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, �
     dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
 
     # and introduced in the same way as in the notebook p-Laplace in the bilinear form a...
-    da(u, du, v) = ∫(∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ
+    da(u, du, v) = ∫(ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ
     
     # and then the Newton multifield system is assembled as in the Navier Stokes notebook...
-    res((u,p),(v,q)) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ + ∫(-(∇⋅v)*p )dΩ - ∫(-(∇⋅u)*q )dΩ - ∫(f ⋅ v)dΩ    #a(u, v)  + b(v, p) - b(u, q) - l(v)       # bytte til epsilon her, og legge til uttrykkene for b(u, q), b(v, p)
-    jac((u, p), (du, dp), (v, q)) =  b(v, dp) - b(du, q) + da(u, du, v)
+    res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) - l(v) #∫( ∇(v)⊙(flux∘∇(u)))dΩ + ∫(-(∇⋅v)*p )dΩ + ∫(-(∇⋅u)*q )dΩ - ∫(f ⋅ v)dΩ    #a(u, v)  + b(v, p) - b(u, q) - l(v)       # bytte til epsilon her, og legge til uttrykkene for b(u, q), b(v, p)
+    jac((u, p), (du, dp), (v, q)) =  b(v, dp) + b(du, q) + da(u, du, v)
     # her har det ikke noe å si om jeg plusser eller trekker fra b(u, q) siden det ikke er lagt til noe annet ledd (pga strong dirichlet)
     op = FEOperator(res, jac, X, Y)
 
     # non-linear phase
     nls = NLSolver(
-    show_trace=true, method=:newton, linesearch=BackTracking())      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+    show_trace=true, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
     solver = FESolver(nls)
 
     (uh, ph) = solve(solver, op)
@@ -605,13 +639,14 @@ function nonlinear_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, �
     end
   
     if save
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 
 function p_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
-       """
+    """
+    Denne fungerer veldig bra. Tror ikke den fungerer for variasjoner i nu0, som gir store variasjoner i viskositeten generelt
     Fitted FEM, non-linear stokes (p-stokes). Using P2-P1 Taylor-Hood elements.  
     n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
     u_exact: exact solution for method of manufactured solutions
@@ -657,7 +692,7 @@ function p_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu
     nu0 = 1
     ϵ_0 = 1e-6
     
-    a(u, v) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ
+    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ
     b(v, p) = ∫(-(∇⋅v)*p )dΩ
     l(v) = ∫(f ⋅ v)dΩ
 
@@ -665,17 +700,17 @@ function p_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu
     dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
 
     # and introduced in the same way as in the notebook p-Laplace in the bilinear form a...
-    da(u, du, v) = ∫(∇(v)⊙(dflux∘(∇(du), ∇(u))))dΩ
+    da(u, du, v) = ∫(ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ
     
     # and then the Newton multifield system is assembled as in the Navier Stokes notebook...
-    res((u,p),(v,q)) = ∫( ∇(v)⊙(flux∘∇(u)))dΩ + ∫(-(∇⋅v)*p )dΩ - ∫(-(∇⋅u)*q )dΩ - ∫(f ⋅ v)dΩ    #a(u, v)  + b(v, p) - b(u, q) - l(v)       # bytte til epsilon her, og legge til uttrykkene for b(u, q), b(v, p)
+    res((u,p),(v,q)) = ∫( ε(v)⊙(flux∘ε(u)))dΩ + ∫(-(∇⋅v)*p )dΩ - ∫(-(∇⋅u)*q )dΩ - ∫(f ⋅ v)dΩ    #a(u, v)  + b(v, p) - b(u, q) - l(v)       # bytte til epsilon her, og legge til uttrykkene for b(u, q), b(v, p)
     jac((u, p), (du, dp), (v, q)) =  b(v, dp) - b(du, q) + da(u, du, v)
 
     op = FEOperator(res, jac, X, Y)
 
     # non-linear phase
     nls = NLSolver(
-    show_trace=true, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+    show_trace=true, method=:newton, linesearch=BackTracking(), iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
     solver = FESolver(nls)
 
     (uh, ph) = solve(solver, op)
@@ -691,7 +726,7 @@ function p_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu
     
   
     if save
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
@@ -845,10 +880,10 @@ function p_stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, 
     # end
     condition_numb = 1
     if save
-        writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
-        writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
+        #writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+        #writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
         #writevtk(n_Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
+        #writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact)]) #, "erru" => erru]) 
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
