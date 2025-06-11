@@ -14,7 +14,7 @@ include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\workfiles_stokes\\testing_non-linear_stokes.jl")
 
 # Defining constants
-nu0 =  1   # klarer ikke mindre enn 0.01 og klarer heller ikke større enn 100 (størrelsesordener)
+nu0 =  100   # klarer ikke mindre enn 0.01 og klarer heller ikke større enn 100 (størrelsesordener)
 r = 4/3
 A = nu0
 ϵ_0 = 1e-6       
@@ -24,16 +24,18 @@ u_exact(x) =  VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1]))#Vec
 p_exact(x) = sin(2*π*x[1])*cos(2*π*x[2])
 
 # Defining the problem 
-flux(∇u) = nu0*(ϵ_0 + norm(∇u)^2)^((r-2)/2)⋅∇u 
-viskositet(∇u) = nu0^(1-r)*(ϵ_0^2 + norm(∇u)^2)^((r-2)/2)
-dviskositet(∇u, ∇du) = nu0^(1-r) *(ϵ_0^2 + ∇u ⋅ ∇u)^((r-4)/2)*(∇u⊙∇du) *(r-2)
+flux(εu) = nu0*(ϵ_0 + norm(εu)^2)^((r-2)/2)⋅εu 
+dflux(εdu,εu)=(r-2)*nu0*(ϵ_0 + norm(εu)^2)^((r-4)/2)*(εu⊙εdu) ⋅ εu + nu0*(ϵ_0 + norm(εu)^2)^((r-2)/2)*εdu
+# Det var en feil i dflux!!!
+viskositet(εu) = nu0^(1-r)*(ϵ_0^2 + norm(εu)^2)^((r-2)/2)
+dviskositet(εu, εdu) = nu0^(1-r) *(ϵ_0^2 + εu ⋅ εu)^((r-4)/2)*(εu⊙εdu) *(r-2)
 
 f(x) =  -divergence(flux∘ε(u_exact))(x) + ∇(p_exact)(x)      # prøver å endre f her...
 ud(x) = u_exact(x)
 g = VectorValue(0.0, 0.0)
 
 # solver parameters
-n = 64
+n = 16
 stabilize = true
 solver = p_stokes_cutFEM_symmetric
 δ = 0 
@@ -53,7 +55,7 @@ geometry = "heart"
 nu = 1      # denne brukes ikke i p_stokes_cutfem, men sendes kun inn for at fuksjonskallet skal være likt i konvergens-funksjonen. 
 uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 
-################################################## convergence ##########################################################
+# ################################################## convergence ##########################################################
 # numb_it = 6
 # uarr_l2, uarr_h1, parr_l2, parr_h1, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
@@ -76,7 +78,7 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # ylabel!("Velocity error")
 # title!("Convergence of p-stokes FEM")
 
-# ########### pressure convergence plot:
+# # ########### pressure convergence plot:
 # plot(
 #     0,
 #     titlefont = 16,
@@ -92,9 +94,7 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # ylabel!("Pressure error")
 # title!("Convergence of p-stokes FEM")
 
-
-
-# ###################################  sensitivity_stokes test ########################################## 
+###################################  sensitivity_stokes test ########################################## 
 # n = 16                # øke denne?
 # M = 100               #full kjøring med M = 2000 med 2000 så kjører det nok i 2 timer. 
 # order = 2
@@ -113,7 +113,7 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # start = 1
 # arr_δ_nostab, arr_l2u_nostab, arr_h1u_nostab, arr_l2p_nostab, arr_h1p_nostab, arr_cond_nostab = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
-############ velocity convergence plot:
+# ########### velocity convergence plot:
 # plot(
 #     0,
 #     titlefont = 16,
@@ -134,7 +134,7 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # ylabel!("Velocity error")
 # title!("Sensitivity analysis of p-Stokes cutFEM")
 
-############ pressure convergence plot:
+# ########### pressure convergence plot:
 # plot(
 #     0,
 #     titlefont = 16,

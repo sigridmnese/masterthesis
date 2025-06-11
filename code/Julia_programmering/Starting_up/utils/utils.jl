@@ -614,8 +614,6 @@ function p_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu
     l(v) = ∫(f ⋅ v)dΩ
 
     # dflux calculated the same way as in the notebook p-Laplace...
-    dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
-
     # and introduced in the same way as in the notebook p-Laplace in the bilinear form a...
     da(u, du, v) = ∫(ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ
     
@@ -640,7 +638,6 @@ function p_stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu
     #  condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
     #else
     condition_numb = 1
-    
   
     if save
         writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
@@ -865,7 +862,7 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
 
     #defining viskosity parameter:
     # You have to chage the call for γ in three functions: a - last term, l3 - first term, da - last term
-    γ = 10*order*order
+    γ = nu0*order*order
     #γ(∇u) = viskositet(∇u)
     #γ(u) = viskositet∘ε(u)
 
@@ -877,15 +874,15 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     l3(v) = ∫( γ/h* (ud ⋅ v))dΓd
     l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd               # kan det være at denne skal være annerledes? mtp flux * ... og ikke n_Γd ⋅ ud?
     # dflux calculated the same way as in the notebook p-Laplace...
-    dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
+    #dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
     
     da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(du), ε(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(γ/h*(du ⋅ v)))dΓd       
 
-    gu(u, v) = (∫((β_1 * h)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
+    gu(u, v) = (∫((β_1 * h*nu0)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
               +  
-                 ∫((β_2*h^3 )*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
+                 ∫((β_2*h^3 *nu0)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
 
-    gp(p, q) = (∫((β_3*h)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)  #eventuelt h^3 her, men synes h^1 fungerer tilsnelatende bedre...
+    gp(p, q) = (∫((β_3*h/nu0)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)  #eventuelt h^3 her, men synes h^1 fungerer tilsnelatende bedre...
 
 
     if stabilize # have tested with different combinations of calling the gp in the residual and jacobian, but this one seems to work best.
@@ -895,7 +892,7 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=40)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
@@ -908,7 +905,7 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=40)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
@@ -919,9 +916,11 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     
     condition_numb = 1
     if save
-        #writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
-        #writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
-        #writevtk(n_Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
+        # writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+        # writevtk(Fg, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Fg$geometry $δ.vtu")
+        # writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
+        # writevtk(Ω_act, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Ω_act$geometry $δ.vtu")
+        # writevtk(Ω_act, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Ω_act$geometry $δ.vtu")
         writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "flux" => flux∘ε(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
     end 
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
