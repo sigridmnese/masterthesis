@@ -33,7 +33,7 @@ R = 0.512
 p0 = Point(0.0, 0.0)
 # Take complement of disk
 # geo = !disk(R, x0=p0)
-geo = !disk(R, x0=p0)
+geo = disk(R, x0=p0)    #kan invertere hva som er bgmodel og hva som er physical mesh ved å fjerne utropstegn
 
 # Define background mesh
 n = 60
@@ -60,7 +60,7 @@ n_Γd = get_normal_vector(Γd)
 
 # Outer mesh boundary 
 # Has Dirichlet for pF and no-stress for u
-Γs = BoundaryTriangulation(cutgeo_facets, ACTIVE_IN)
+Γs = BoundaryTriangulation(cutgeo_facets, PHYSICAL_IN)
 n_Γs = get_normal_vector(Γs)
 
 # Get ghost penalty facets

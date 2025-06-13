@@ -867,32 +867,36 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     #γ(u) = viskositet∘ε(u)
 
     # weak formulation components    
-    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u)+ γ/h* (u ⋅ v))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
+    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u) + viskositet∘ε(u)/h * (u ⋅ v))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
     b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme som før. 
     l1(v) = ∫(f ⋅ v)dΩ
     l2(v) = ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd    # har brukt ud som dirichlet grense
-    l3(v) = ∫( γ/h* (ud ⋅ v))dΓd
+    l3((u, p), (v, q)) = ∫( viskositet∘ε(u)/h* (ud ⋅ v))dΓd
     l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd               # kan det være at denne skal være annerledes? mtp flux * ... og ikke n_Γd ⋅ ud?
     # dflux calculated the same way as in the notebook p-Laplace...
     #dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
     
-    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(du), ε(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(γ/h*(du ⋅ v)))dΓd       
+    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(du), ε(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(viskositet∘ε(u)/h*(du ⋅ v)))dΓd       
 
-    gu(u, v) = (∫((β_1 * h*nu0)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
+    gu((u,p), (v, q)) = (∫(( nu0 * β_1 * h)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
               +  
-                 ∫((β_2*h^3 *nu0)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
+                ∫((nu0 *β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
 
-    gp(p, q) = (∫((β_3*h/nu0)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)  #eventuelt h^3 her, men synes h^1 fungerer tilsnelatende bedre...
+    # dgu((u, p), (du, dp), (v, q)) = (∫((nu0 *β_1 * h)*jump(n_Fg ⋅ ε(du))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
+    #           +  
+    #             ∫((nu0 *β_2*h^3)*jump_nn(du,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
 
+    gp((u,p),(v, q)) = (∫((β_3 * h^3/nu0)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)  #eventuelt h^3 her, men synes h^1 fungerer tilsnelatende bedre...
 
     if stabilize # have tested with different combinations of calling the gp in the residual and jacobian, but this one seems to work best.
-      res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q)+ gu(u,v) - gp(p, q) -l1(v) -l2(v) -l3(v) -l4(q) 
-      jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v) + gu(du,v) - gp(dp, q)  
+      res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) + gu((u,p), (v, q)) - gp((u,p), (v, q)) -l1(v) -l2(v) - l3((u, p), (v, q)) -l4(q) 
+      jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v) + gu((du, p), (v, q)) - gp((u,dp), (v, q))
+      
       op = FEOperator(res, jac, X, Y)
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=50)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
@@ -905,7 +909,7 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=50)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
@@ -916,7 +920,7 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     
     condition_numb = 1
     if save
-        # writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+        writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
         # writevtk(Fg, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Fg$geometry $δ.vtu")
         # writevtk(Γd, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_d_$geometry $δ.vtu")
         # writevtk(Ω_act, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Ω_act$geometry $δ.vtu")
@@ -979,8 +983,6 @@ function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, 
         #uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver_result
         uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
         
-
-        save = false
         arr_δ[i] = δ
         arr_l2u[i] = l2_u
         arr_h1u[i] = h1_semi_u
