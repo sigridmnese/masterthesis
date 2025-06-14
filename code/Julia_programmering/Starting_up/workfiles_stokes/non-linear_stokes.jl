@@ -14,7 +14,7 @@ include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\workfiles_stokes\\testing_non-linear_stokes.jl")
 
 # Defining constants
-nu0 =  100   # klarer ikke mindre enn 0.01 og klarer heller ikke større enn 100 (størrelsesordener)
+nu0 =  0.01   # klarer ikke mindre enn 0.01 og klarer heller ikke større enn 100 (størrelsesordener)
 r = 4/3
 A = nu0
 ϵ_0 = 1e-6       
@@ -35,7 +35,7 @@ ud(x) = u_exact(x)
 g = VectorValue(0.0, 0.0)
 
 # solver parameters
-n = 16
+n = 32
 stabilize = true
 solver = p_stokes_cutFEM_symmetric
 δ = 0 
@@ -62,7 +62,7 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # stabilize = false
 # uarr_l2_1_nostab, uarr_h1_1_nostab, parr_l2_1_nostab, parr_h1_1_nostab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
-# ########### velocity convergence plot:
+# ########## velocity convergence plot:
 # plot(
 #     0,
 #     titlefont = 16,
@@ -94,24 +94,25 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # ylabel!("Pressure error")
 # title!("Convergence of p-stokes FEM")
 
-###################################  sensitivity_stokes test ########################################## 
+# ###################################  sensitivity_stokes test ########################################## 
 # n = 16                # øke denne?
-# M = 100               #full kjøring med M = 2000 med 2000 så kjører det nok i 2 timer. 
+# M = 4               #full kjøring med M = 2000 med 2000 så kjører det nok i 2 timer. 
 # order = 2
-# geometry = "circle"
+# geometry = "heart"
 # βu0 = 1
 # γu1 = 1
 # γu2 = 1
 # γp = 0.1
 # βp0 = 0.1
 # stabilize = true
-# save = false
+# save = true
 # calc_condition = false
 
 # arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
-# stabilize = false
-# start = 1
-# arr_δ_nostab, arr_l2u_nostab, arr_h1u_nostab, arr_l2p_nostab, arr_h1p_nostab, arr_cond_nostab = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+#stabilize = false
+#start = 1
+#save = false
+#arr_δ_nostab, arr_l2u_nostab, arr_h1u_nostab, arr_l2p_nostab, arr_h1p_nostab, arr_cond_nostab = sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
 # ########### velocity convergence plot:
 # plot(
