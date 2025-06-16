@@ -47,10 +47,6 @@ g(x) = tr(ε(u_exact)(x))
 
 n = 32
 
-# defining the Navier operators
-#Pn(n) = n ⊗ n        # normal projection operator
-#Pt(n) = Id - Pn(n)     # tangential projection operator
-
 # solver:
 #fitted FEM stokes solver:
 function stokes_FEM_navierBC_newton(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
@@ -105,9 +101,11 @@ function stokes_FEM_navierBC_newton(;n, u_exact, p_exact, f, g, ud, order, geome
 
     I₂ = one(TensorValue{2,2,Float64})
 
-    # 4) Projeksjons‐operatorene:
-    Pn(n) = n ⊗ n
-    Pt(n) = I₂ - Pn(n)
+    # Projeksjons‐operatorene:
+    # defining the Navier operators
+    Pn(n) = n ⊗ n        # normal projection operator
+    Pt(n) = I₂ - Pn(n)     # tangential projection operator
+
     ######################## kvadratish domain - men bruker nitsche implementasjon. Hvilke spaces skal jeg bruke da? #########################
     
     a0(u, v) = ∫( ε(v)⊙(flux(ε(u))))dΩ  
@@ -130,7 +128,7 @@ function stokes_FEM_navierBC_newton(;n, u_exact, p_exact, f, g, ud, order, geome
     # hvis jeg vil teste uten newton-løser:
     res((u,p),(v,q)) = a0(u, v) + a1(u, v) + a2(u, v) + a3(u, v) + a4(u, v) + a5(u, v) + a6(u, v) + a7(u, v) + b(p, v) - b(q, u)
     jac((v, q)) = l(v, q)
-    
+
     op = AffineFEOperator(res, jac, X, Y)
 
     # non-linear phase
