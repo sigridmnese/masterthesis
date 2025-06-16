@@ -14,7 +14,7 @@ include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\workfiles_stokes\\testing_non-linear_stokes.jl")
 
 # Defining constants
-nu0 =  0.01   # klarer ikke mindre enn 0.01 og klarer heller ikke større enn 100 (størrelsesordener)
+nu0 =  1   
 r = 4/3
 A = nu0
 ϵ_0 = 1e-6       
@@ -23,16 +23,15 @@ A = nu0
 u_exact(x) =  VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1]))#VectorValue(2*x[1] + exp(x[1]/2) * cos(2*π*x[2]), -2*x[2] + exp(x[2]/2) * sin(2*π*x[1])) #bytte til sin/cos-uttrykk  VectorValue(-x[2], x[1])
 p_exact(x) = sin(2*π*x[1])*cos(2*π*x[2])
 
-# Defining the problem 
-flux(εu) = nu0*(ϵ_0 + norm(εu)^2)^((r-2)/2)⋅εu 
-dflux(εdu,εu)=(r-2)*nu0*(ϵ_0 + norm(εu)^2)^((r-4)/2)*(εu⊙εdu) ⋅ εu + nu0*(ϵ_0 + norm(εu)^2)^((r-2)/2)*εdu
-# Det var en feil i dflux!!!
+# Defining the problem
+flux(εu) = nu0^(1-r)*(ϵ_0 + norm(εu)^2)^((r-2)/2)⋅εu 
+dflux(εu, εdu)=(r-2)*nu0^(1-r)*(ϵ_0 + norm(εu)^2)^((r-4)/2)*(εu⊙εdu) ⋅ εu + nu0^(1-r)*(ϵ_0 + norm(εu)^2)^((r-2)/2)*εdu
 viskositet(εu) = nu0^(1-r)*(ϵ_0^2 + norm(εu)^2)^((r-2)/2)
 dviskositet(εu, εdu) = nu0^(1-r) *(ϵ_0^2 + εu ⋅ εu)^((r-4)/2)*(εu⊙εdu) *(r-2)
 
-f(x) =  -divergence(flux∘ε(u_exact))(x) + ∇(p_exact)(x)      # prøver å endre f her...
+f(x) =  -divergence(flux∘ε(u_exact))(x) + ∇(p_exact)(x)      
 ud(x) = u_exact(x)
-g = VectorValue(0.0, 0.0)
+g(x) = tr(ε(u_exact)(x))
 
 # solver parameters
 n = 32
@@ -51,7 +50,7 @@ geometry = "heart"
 β_1 = 1
 β_2 = 1
 β_3 = 0.1
-γ=10*2*2
+γ=1
 nu = 1      # denne brukes ikke i p_stokes_cutfem, men sendes kun inn for at fuksjonskallet skal være likt i konvergens-funksjonen. 
 uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 

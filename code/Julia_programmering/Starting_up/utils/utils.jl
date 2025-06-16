@@ -867,29 +867,31 @@ function p_stokes_cutFEM_symmetric(;n, u_exact, p_exact, f, g, ud, order, geomet
     #γ(u) = viskositet∘ε(u)
 
     # weak formulation components    
-    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u) + viskositet∘ε(u)/h * (u ⋅ v))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
-    b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme som før. 
-    l1(v) = ∫(f ⋅ v)dΩ
-    l2(v) = ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd    # har brukt ud som dirichlet grense
-    l3((u, p), (v, q)) = ∫( viskositet∘ε(u)/h* (ud ⋅ v))dΓd
-    l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd               # kan det være at denne skal være annerledes? mtp flux * ... og ikke n_Γd ⋅ ud?
-    # dflux calculated the same way as in the notebook p-Laplace...
-    #dflux(∇du,∇u)=(r-2)*(ϵ_0 + norm(∇u)^2)^((r-4)/2)*(∇u⊙∇du) ⋅ ∇u + (ϵ_0 + norm(∇u)^2)^((r-2)/2)*∇du
+    # a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u) + viskositet∘ε(u)/h * (u ⋅ v))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
+    # b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme som før. 
+    # l1((v, q)) = ∫(f ⋅ v)dΩ
+    # l2(v) = ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd    # har brukt ud som dirichlet grense
+    # l3((u, p), (v, q)) = ∫( viskositet∘ε(u)/h* (ud ⋅ v))dΓd
+    # l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd               # kan det være at denne skal være annerledes? mtp flux * ... og ikke n_Γd ⋅ ud?
     
-    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(du), ε(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(viskositet∘ε(u)/h*(du ⋅ v)))dΓd       
+    # da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(du), ε(u))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(du), ε(u)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(viskositet∘ε(u)/h*(du ⋅ v)))dΓd       
+    a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u) + γ/h * (u ⋅ v))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
+    b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme som før. 
+    l1((v, q)) = ∫(f ⋅ v - g ⋅ q)dΩ
+    l2(v) = ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd    
+    l3((u, p), (v, q)) = ∫( γ/h* (ud ⋅ v))dΓd
+    l4(q) = ∫((n_Γd ⋅ ud) * q)dΓd
+    
+    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(u), ε(du))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(u), ε(du)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du)+(γ/h*(du ⋅ v)))dΓd    
 
-    gu((u,p), (v, q)) = (∫(( nu0 * β_1 * h)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
+    gu((u,p), (v, q)) = (∫(( β_1 * h*γ)*jump(n_Fg ⋅ ε(u))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
               +  
-                ∫((nu0 *β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
+                ∫((β_2*h^3*γ)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
 
-    # dgu((u, p), (du, dp), (v, q)) = (∫((nu0 *β_1 * h)*jump(n_Fg ⋅ ε(du))⋅jump(n_Fg⋅ ε(v)) )dFg  # prøver å multiplisere med viskositet her
-    #           +  
-    #             ∫((nu0 *β_2*h^3)*jump_nn(du,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
-
-    gp((u,p),(v, q)) = (∫((β_3 * h^3/nu0)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)  #eventuelt h^3 her, men synes h^1 fungerer tilsnelatende bedre...
+    gp((u,p),(v, q)) = (∫((β_3 * h^3/γ)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)  #eventuelt h^3 her, men synes h^1 fungerer tilsnelatende bedre...
 
     if stabilize # have tested with different combinations of calling the gp in the residual and jacobian, but this one seems to work best.
-      res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) + gu((u,p), (v, q)) - gp((u,p), (v, q)) -l1(v) -l2(v) - l3((u, p), (v, q)) -l4(q) 
+      res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) + gu((u,p), (v, q)) - gp((u,p), (v, q)) - l1((v, q)) -l2(v) - l3((u, p), (v, q)) -l4(q) 
       jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + da(u, du, v) + gu((du, p), (v, q)) - gp((u,dp), (v, q))
       
       op = FEOperator(res, jac, X, Y)
