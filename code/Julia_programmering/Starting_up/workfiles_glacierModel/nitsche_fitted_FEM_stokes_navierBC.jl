@@ -1,5 +1,3 @@
-# Kan det være at jeg får store feil i hjørnene nå fordi det ikke eksisterer noen normalvektor til disse punktene???
-# spørre André i morgen.
 
 using Gridap
 using GridapEmbedded
@@ -14,7 +12,7 @@ using LoggingExtras
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\utils\\utils.jl")
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\workfiles_stokes\\testing_non-linear_stokes.jl")
 
-"""Fitted FEM with weak boundary imposition using Nitsches method. Symmetric stokes equations with Navier boundary conditions. """
+"""Fitted FEM with weak boundary imposition using Nitsches method. Symmetric p-stokes equations with Navier boundary conditions. """
 
 # Defining constants
 nu0 =  1   # klarer ikke mindre enn 0.01 og klarer heller ikke større enn 100 (størrelsesordener)
@@ -127,42 +125,25 @@ function stokes_FEM_navierBC_newton(;n, u_exact, p_exact, f, g, ud, order, geome
     - ∫((nu0 * γt * h/(e + γt * h) * Pt(n_Γd) ⋅ ud) ⋅ (2*n_Γd ⋅ ε(v)))dΓd # OK
     )
 
-    # bytter ud til g:
-    # a0(u, v) = ∫( ε(v)⊙(flux(ε(u))))dΩ              # sjekket med Hanna
-    # a1(u, v) = ∫(((n_Γd ⋅ (flux(ε(u)))) ⋅ v))dΓd     # ok
-    # a2(u, v) = ∫((Pn(n_Γd)⋅ u) ⋅ (n_Γd ⋅ (flux(ε(v)))))dΓd      # OK
-    # a3(u, v) = ∫((2* nu0/(γn*h)*(n_Γd ⋅ u)) ⋅ (n_Γd ⋅ v)  )dΓd # linje 2, ledd 1                            OK
-    # a4(u, v) = ∫((e/(e + γt *h) * ((Pt(n_Γd) ⋅  (n_Γd ⋅ (flux(ε(u)))))) ⋅ v))dΓd # linje 2, ledd 2            # OK
-    # a5(u, v) = ∫((nu0/(e + γt*h)*(t_Γd ⋅ u)) ⋅ ( t_Γd ⋅ v))dΓd #linje 2, ledd 3                               # OK     
-    # a6(u, v) = ∫((e*γt * h/(e + γt*h) * (Pt(n_Γd) ⋅  (n_Γd ⋅ (flux∘ε(u)))) ) ⋅ (2*n_Γd ⋅ ε(v)))dΓd            # OK
-    # a7(u, v) = ∫((nu0 * γt * h / (e + γt *h) * (Pt(n_Γd)⋅ u)) ⋅ (2* n_Γd ⋅ ε(v)))dΓd                          # OK   
-    
-    # b(p, v) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)
-
-    # l(v, q) = (∫(f ⋅ v)dΩ     # OK
-    # - ∫((n_Γd ⋅ ud) ⋅ ( n_Γd ⋅ (n_Γd ⋅ flux(ε(v)))))dΓd #OK
-    # + ∫(((2*nu0)/(γn *h) * (n_Γd ⋅ ud)) ⋅ (n_Γd ⋅ v) )dΓd #OK
-    # - ∫((n_Γd ⋅ ud) ⋅ q)dΓd  #OK
-    # + ∫((nu0/(e + γt * h) ⋅ (t_Γd ⋅ ud) )⋅ (t_Γd ⋅ v) )dΓd #OK
-    # - ∫((nu0 * γt * h/(e + γt * h) * Pt(n_Γd) ⋅ ud) ⋅ (2*n_Γd ⋅ ε(v)))dΓd # OK
-    # )
-
     # Har nå sjekket alle ledd i a og l sammen med Hanna, og de er alle OK.
     # til newton-løser:
-    #res((u,p),(v,q)) = a(u, v) + b(v, p) + b(u, q) -l1(v) -l2(v) - l3((u, p), (v, q)) -l4(q) 
-    #jac((u, p), (du, dp), (v, q)) = b(v, dp) + b(du, q) + a(du, v) 
-     
+    # res((u,p),(v,q)) = a0(u, v) - a1(u, v) - a2(u, v) + a3(u, v) + a4(u, v) + a5(u, v) - a6(u, v) - a7(u, v) + b(p, v) - b(q, u) -l(v, q)
+    # jac((u, p), (du, dp), (v, q)) = a0(du, v) - a1(du, v) - a2(du, v) + a3(du, v) + a4(du, v) + a5(du, v) - a6(du, v) - a7(du, v) + b(dp, v) - b(q, du)
+    
+    # op = FEOperator(res, jac, X, Y)
+
+    # # non-linear phase
+    # nls = NLSolver(
+    # show_trace=true, method=:newton, linesearch=BackTracking(), iterations=50)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+    # solver = FESolver(nls)
+
+    # (uh, ph) = solve(solver, op)
+
     # hvis jeg vil teste uten newton-løser:
     res((u,p),(v,q)) = a0(u, v) - a1(u, v) - a2(u, v) + a3(u, v) + a4(u, v) + a5(u, v) - a6(u, v) - a7(u, v) + b(p, v) - b(q, u)
     jac((v, q)) = l(v, q)
 
     op = AffineFEOperator(res, jac, X, Y)
-
-    # non-linear phase
-    #nls = NLSolver(
-    #show_trace=true, method=:newton, linesearch=BackTracking(), iterations=50)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
-    #solver = FESolver(nls)
-
     (uh, ph) = solve(op)
 
     errp = p_exact - ph
@@ -212,21 +193,18 @@ uarr_l2, uarr_h1, parr_l2, parr_h1, h = convergence_stokes(;numb_it, u_exact, p_
 
 plot_convergence_u(uarr_l2,uarr_h1, h)
 
+plot(
+    0,
+    titlefont = 16,
+    guidefont = 14,
+    tickfont = 12
+)
 
-
-
-# plot(
-#     0,
-#     titlefont = 16,
-#     guidefont = 14,
-#     tickfont = 12
-# )
-
-# plot!(h, uarr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
-# plot!(h, uarr_h1, marker=:o, lw=2, label="H1 stabilized")
-# xlabel!("Mesh size h")
-# ylabel!("Velocity error")
-# title!("Convergence of p-stokes FEM")
+plot!(h, uarr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2")
+plot!(h, uarr_h1, marker=:o, lw=2, label="H1")
+xlabel!("Mesh size h")
+ylabel!("Velocity error")
+title!("Convergence of Stokes fitted FEM with Navier BC")
 
 # # ########### pressure convergence plot:
 plot(
@@ -236,8 +214,8 @@ plot(
     tickfont = 12
 )
 
-plot!(h, parr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
-plot!(h, parr_h1, marker=:o, lw=2, label="H1 stabilized")
+plot!(h, parr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2")
+plot!(h, parr_h1, marker=:o, lw=2, label="H1")
 xlabel!("Mesh size h")
 ylabel!("Pressure error")
-title!("Convergence of p-stokes FEM")
+title!("Convergence of Stokes fitted FEM with Navier BC")
