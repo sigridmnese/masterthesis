@@ -62,6 +62,40 @@ outputfolderstokes = "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stok
         end
     end
   end
+
+
+
+function plot_convergence_u(uarr_l2, uarr_h1, h)
+    # Plotting the convergence of the velocity
+    plot(
+        0,
+        titlefont = 16,
+        guidefont = 14,
+        tickfont = 12
+    )
+
+    plot!(h, uarr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
+    plot!(h, uarr_h1, marker=:o, lw=2, label="H1 stabilized")
+    xlabel!("Mesh size h")
+    ylabel!("Velocity error")
+    title!("Convergence of p-stokes FEM")
+end
+
+function plot_convergence_p(parr_l2, parr_h1, h)
+    # Plotting the convergence of the velocity
+    plot(
+        0,
+        titlefont = 16,
+        guidefont = 14,
+        tickfont = 12
+    )
+
+    plot!(h, parr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
+    plot!(h, parr_h1, marker=:o, lw=2, label="H1 stabilized")
+    xlabel!("Mesh size h")
+    ylabel!("Pressure error")
+    title!("Convergence of p-stokes FEM")
+end
   
   # Define ghost penalty
 function jump_nn(u,n)
