@@ -17,27 +17,42 @@ import Gridap: ∇
 γg1 = 10
 γg3 = 0.1
 stabilize = false
-n = 64
+n = 32
 uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "heart", γd, γg1, γg3, stabilize, 0, true)
 #writevtk(Ω, "testing_stabilized_poisson_circle.vtu", cellfields=["uh"=>uh, "u_ex"=>u_exact, "erru" => erru])
 
 ####### convergence_poisson test #######
 # med stabilisering, order 1
-# numb_it = 6                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
+# numb_it = 7                         # Sånn koden er implementert nå så er det fra 2^1 til 2^{numb_it}. Tar kort tid å kjøre for numb_it = 6
 # order = 1                           # når jeg øker orden så øker kjøretid veeeeldig !! Bør vurdere å skru ned numb_it samtidig. 244 sekunder når jeg har på order = 2 for kjøringen 2^6
 # δ = 0                               # kan også se ut til at feilen havner på maskinnivå? vet ikke helt, men mulig å eksperimentere med dette. 
 # # med stabilisering, order 1
 # stabilization = true
 # solver = poisson_solver
-# arr_l2_1_stab, arr_h1_1_stab, h = convergence_poisson(numb_it, u_ex, f, order, "circle",solver, δ, γd, γg1, γg3, stabilization, false)
+# uarr_l2_stab, uarr_h1_stab, h = convergence_poisson(numb_it, u_ex, f, order, "circle",solver, δ, γd, γg1, γg3, stabilization, false)
 # start = 2
 
 # # Uten stabilisering, order 1
 # stabilization = false
 # solver = poisson_solver
-# arr_l2_1_nostab, arr_h1_1_nostab, h = convergence_poisson(numb_it, u_ex, f, order, "circle", solver, δ, γd, γg1, γg3, stabilization, true)
+# uarr_l2_nostab, uarr_h1_nostab, h = convergence_poisson(numb_it, u_ex, f, order, "circle", solver, δ, γd, γg1, γg3, stabilization, true)
 
-# plot(
+# start = 2
+# plot_convergence_u(
+#     uarr_l2_stab[start:end], uarr_h1_stab[start:end], h[start:end];
+#     uarr_l2_nostab=uarr_l2_nostab[start:end],
+#     uarr_h1_nostab=uarr_h1_nostab[start:end],
+#     title_str="Convergence of CutFEM Poisson"
+# )
+
+# print_eoc_latex_combined(h;
+#     uarr_l2_stab = uarr_l2_stab,
+#     uarr_h1_stab = uarr_h1_stab,
+#     uarr_l2_nostab = uarr_l2_nostab,
+#     uarr_h1_nostab = uarr_h1_nostab,
+#     start = 1
+# )
+#lot(
 #     0,
 #     title = "Convergence of Poisson Solver",
 #     xlabel = "Mesh size h",
@@ -56,6 +71,21 @@ uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "heart
 # # ylabel!("Error")
 # title!("Convergence of Poisson Solver")
 
+# plot_convergence_u(
+#     uarr_l2_stab, uarr_h1_stab, h;
+#     uarr_l2_nostab=uarr_l2_nostab,
+#     uarr_h1_nostab=uarr_h1_nostab,
+#     title_str="Convergence of CutFEM: Stokes Navier BC"
+# )
+
+# # print eoc-verdier:
+# print_eoc_latex_combined(h;
+#     uarr_l2_stab = uarr_l2_stab,
+#     uarr_h1_stab = uarr_h1_stab,
+#     uarr_l2_nostab = uarr_l2_nostab,
+#     uarr_h1_nostab = uarr_h1_nostab,
+#     start = 1
+# )
 
 
 ####### sensitivity_poisson test #######
@@ -66,89 +96,107 @@ uh, u_exact, erru, _, _, _, Ω_active, Ω = poisson_solver(n, u_ex, f, 1, "heart
 # arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd, γg1, γg3, stabilize, false)
 # stabilize = false
 # arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd, γg1, γg3, stabilize, false)
-# start = 1
-# using Plots
-# e = 1999
-# #condition numbers
-# plot(arr_δ[start:e], arr_cond[start:e], yaxis=:log, lw=2, label="Stabilized")
-# plot!(arr_δ_nostab[start:e], arr_cond_nostab[start:e], yaxis=:log, lw=2, label="Non-stabilized")
-# xlabel!("Perturbation δ")
-# ylabel!("Condition number")
-# title!("sensitivity analysis of cutFEM poisson")
-# savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_condition_number")
-
-# #errors
-# plot(arr_δ[start:end], arr_l2[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L^2 norm")
-# plot!(arr_δ[start:end], arr_h1[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="H^1 norm")
-# xlabel!("Perturbation δ")
-# ylabel!("Error")
-# title!("sensitivity analysis of cutFEM poisson")
-# savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_errors")
 
 
-# #### Varying geometry
-# geometry_arr = ["circle", "flower", "heart"]
-# s = plot()  # Lager et tomt plott
-# for i = 1:3
-#     geo = geometry_arr[i]
-#     stabilize = true
-#     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, geometry_arr[i], poisson_solver, 0, γd, γg1, γg3, stabilize, false)
-#     stabilize = false
-#     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, geometry_arr[i], poisson_solver, 0,γd_arr[i], γg1, γg3, stabilize, false)
-#     plot!(s, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized ($geo)")
-#     plot!(s, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized ($geo)")
-# end
-# title!("sensitivity_poisson analysis varing geometries")
+# plot_sensitivity_poisson(
+#     arr_δ, arr_l2, arr_h1, arr_δ_nostab, arr_l2_nostab, arr_h1_nostab;
+#     marker_l2_stab = nothing,
+#     marker_l2_nostab = nothing,
+#     marker_h1_stab = :star5,
+#     marker_h1_nostab = :circle,
+#     markstep = 100
+# )
 
-# display(s)
+# plot_condition_poisson(
+#     arr_δ, arr_cond,
+#     arr_δ_nostab, arr_cond_nostab;
+#     title_str = "Condition number: CutFEM Poisson"
+# )
 
-# start = 1
-# # ### Varying γd
-# γd_arr = [0.1, 1, 10]
-# p = plot()  # Lager et tomt plott
-# for i = 1:3
-#     γd = γd_arr[i]
-#     stabilize = true
-#     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd_arr[i], γg1, γg3, stabilize, false)
-#     stabilize = false
-#     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd_arr[i], γg1, γg3, stabilize, false)
-#     plot!(p, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized with γd = $γd")
-#     plot!(p, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized with γd = $γd")
-# end
-# title!("sensitivity_poisson analysis varing γd")
 
-# display(p)
+# # start = 1
+# # using Plots
+# # e = 1999
+# # #condition numbers
+# # plot(arr_δ[start:e], arr_cond[start:e], yaxis=:log, lw=2, label="Stabilized")
+# # plot!(arr_δ_nostab[start:e], arr_cond_nostab[start:e], yaxis=:log, lw=2, label="Non-stabilized")
+# # xlabel!("Perturbation δ")
+# # ylabel!("Condition number")
+# # title!("sensitivity analysis of cutFEM poisson")
+# # savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_condition_number")
 
-# # ### Varying γg1
-# γg1_arr = [0.001, 0.01, 0.1, 1]
-# γd = 0.1
-# q = plot()  # Lager et tomt plott
-# for i = 1:3
-#     γg1 = γg1_arr[i]
-#     stabilize = true
-#     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd, γg1_arr[i], γg3, stabilize, false)
-#     stabilize = false
-#     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd, γg1_arr[i], γg3, stabilize, false)
-#     plot!(q, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized with γg1 = $γg1")
-#     plot!(q, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized with γg1 = $γg1")
-# end
-# title!("sensitivity_poisson analysis varying γg1")
+# # #errors
+# # plot(arr_δ[start:end], arr_l2[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L^2 norm")
+# # plot!(arr_δ[start:end], arr_h1[start:end], xaxis=:log, yaxis=:log, marker=:o, lw=2, label="H^1 norm")
+# # xlabel!("Perturbation δ")
+# # ylabel!("Error")
+# # title!("sensitivity analysis of cutFEM poisson")
+# # savefig("C:\\Users\\Sigri\\Documents\\Master\\report\\results\\poisson\\sensitivity_n16_order1_M2000_errors")
 
-# display(q)
 
-### varying γg3
-# γg3_arr = [0.1, 1, 10]
-# γd = 0.1
-# r = plot()  #lager et tomt plott
-# for i = 1:3
-#     γg3 = γg3_arr[i]
-#     stabilize = true
-#     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd, γg1, γg3_arr[i], stabilize, false)
-#     stabilize = false
-#     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd, γg1, γg3_arr[i], stabilize, false)
-#     plot!(r, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized with γg3 = $γg3")
-#     plot!(r, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized with γg3 = $γg3")
-# end
-# title!("sensitivity_poisson analysis varing γg3")
+# # #### Varying geometry
+# # geometry_arr = ["circle", "flower", "heart"]
+# # s = plot()  # Lager et tomt plott
+# # for i = 1:3
+# #     geo = geometry_arr[i]
+# #     stabilize = true
+# #     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, geometry_arr[i], poisson_solver, 0, γd, γg1, γg3, stabilize, false)
+# #     stabilize = false
+# #     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, geometry_arr[i], poisson_solver, 0,γd_arr[i], γg1, γg3, stabilize, false)
+# #     plot!(s, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized ($geo)")
+# #     plot!(s, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized ($geo)")
+# # end
+# # title!("sensitivity_poisson analysis varing geometries")
 
-# display(r)
+# # display(s)
+
+# # start = 1
+# # # ### Varying γd
+# # γd_arr = [0.1, 1, 10]
+# # p = plot()  # Lager et tomt plott
+# # for i = 1:3
+# #     γd = γd_arr[i]
+# #     stabilize = true
+# #     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd_arr[i], γg1, γg3, stabilize, false)
+# #     stabilize = false
+# #     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd_arr[i], γg1, γg3, stabilize, false)
+# #     plot!(p, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized with γd = $γd")
+# #     plot!(p, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized with γd = $γd")
+# # end
+# # title!("sensitivity_poisson analysis varing γd")
+
+# # display(p)
+
+# # # ### Varying γg1
+# # γg1_arr = [0.001, 0.01, 0.1, 1]
+# # γd = 0.1
+# # q = plot()  # Lager et tomt plott
+# # for i = 1:3
+# #     γg1 = γg1_arr[i]
+# #     stabilize = true
+# #     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd, γg1_arr[i], γg3, stabilize, false)
+# #     stabilize = false
+# #     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd, γg1_arr[i], γg3, stabilize, false)
+# #     plot!(q, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized with γg1 = $γg1")
+# #     plot!(q, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized with γg1 = $γg1")
+# # end
+# # title!("sensitivity_poisson analysis varying γg1")
+
+# # display(q)
+
+# ### varying γg3
+# # γg3_arr = [0.1, 1, 10]
+# # γd = 0.1
+# # r = plot()  #lager et tomt plott
+# # for i = 1:3
+# #     γg3 = γg3_arr[i]
+# #     stabilize = true
+# #     arr_δ, arr_l2, arr_h1, arr_cond = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0, γd, γg1, γg3_arr[i], stabilize, false)
+# #     stabilize = false
+# #     arr_δ_nostab, arr_l2_nostab, arr_h1_nostab, arr_cond_nostab = sensitivity_poisson(n, M, u_ex, f, order, "circle", poisson_solver, 0,γd, γg1, γg3_arr[i], stabilize, false)
+# #     plot!(r, arr_δ[start:end], arr_cond[start:end], xaxis=:log, yaxis=:log, lw=2, label="Stabilized with γg3 = $γg3")
+# #     plot!(r, arr_δ_nostab[start:end], arr_cond_nostab[start:end], xaxis=:log, yaxis=:log, lw=2, label="Non-stabilized with γg3 = $γg3")
+# # end
+# # title!("sensitivity_poisson analysis varing γg3")
+
+# # display(r)
