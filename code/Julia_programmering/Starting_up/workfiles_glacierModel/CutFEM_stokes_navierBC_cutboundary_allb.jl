@@ -44,7 +44,7 @@ g(x) = tr(ε(u_exact)(x))
 # prøver også å bytte ud til g...
 
 # solver parameters
-n = 32
+n = 128
 stabilize = true
 
 δ = 0 
@@ -156,8 +156,8 @@ function stokes_navierBC_CutFEM_cutmeshboundary(;n, u_exact, p_exact, f, g, ud, 
 
     # Nitsche and Ghost penalty stabilization parameter
     βu = 10.0*order_u^2
-    γu1 = 1.0
-    γu2 = 1.0
+    γu1 = 0.1
+    γu2 = 0.1
     γp = 0.1
     βp = 0.1
 
@@ -226,11 +226,11 @@ function stokes_navierBC_CutFEM_cutmeshboundary(;n, u_exact, p_exact, f, g, ud, 
     )
     
     # stabiliserer alle facets
-    g_u(u,v) = ( ∫( (γu1*h)*jump(n_Fg⋅∇(u))⋅jump(n_Fg⋅∇(v)) )dFg 
+    g_u(u,v) = ( ∫( (γu1*h*nu0)*jump(n_Fg⋅∇(u))⋅jump(n_Fg⋅∇(v)) )dFg 
             +  
-               ∫( (γu2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg
+               ∫( (γu2*h^3*nu0)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg
 )
-    g_p(p,q) = ∫( (γp*h^3)*jump(n_Fg⋅∇(p))*jump(n_Fg⋅∇(q)) )dFg
+    g_p(p,q) = ∫( (γp*h^3/nu0)*jump(n_Fg⋅∇(p))*jump(n_Fg⋅∇(q)) )dFg
 
     if stabilize # have tested with different combinations of calling the gp in the residual and jacobian, but this one seems to work best.
        # hvis jeg vil teste uten newton-løser:
@@ -251,35 +251,35 @@ function stokes_navierBC_CutFEM_cutmeshboundary(;n, u_exact, p_exact, f, g, ud, 
     
     condition_numb = 1
     if save
-        writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
-        writevtk(Fg, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Fg$geometry $δ.vtu")
-        writevtk(Γb, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_b_$geometry $δ.vtu")
-        writevtk(Γs, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_s_$geometry $δ.vtu")
-        writevtk(Ω_act, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Ω_act$geometry $δ.vtu")
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "flux" => flux∘ε(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
+        # writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+        # writevtk(Fg, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Fg$geometry $δ.vtu")
+        # writevtk(Γb, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_b_$geometry $δ.vtu")
+        # writevtk(Γs, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_s_$geometry $δ.vtu")
+        # writevtk(Ω_act, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Ω_act$geometry $δ.vtu")
+        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ allb.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "flux" => flux∘ε(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
     end 
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 solver = stokes_navierBC_CutFEM_cutmeshboundary
 uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 # order = 2
-# numb_it = 5
-# uarr_l2_stab, uarr_h1_stab, parr_l2_stab, parr_h1_stab, h = convergence_stokes_weird_domain(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+# numb_it = 4
+# uarr_l2_stab, uarr_h1_stab, parr_l2_stab, parr_h1_stab, h_arr = convergence_stokes_weird_domain(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
 # stabilize = false
 # uarr_l2_nostab, uarr_h1_nostab, parr_l2_nostab, parr_h1_nostab, h = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
-# # ########## velocity convergence plot:
+# ########## velocity convergence plot:
 # plot_convergence_u(
-#     uarr_l2_stab, uarr_h1_stab, h;
-#     uarr_l2_nostab = uarr_l2_nostab, uarr_h1_nostab = uarr_h1_nostab,
+#     uarr_l2_stab, uarr_h1_stab, h_arr;
+#     #uarr_l2_nostab = uarr_l2_nostab, uarr_h1_nostab = uarr_h1_nostab,
 #     title_str="Convergence of CutFEM Stokes Navier BC"
 # )
 
 # plot_convergence_p(
-#     parr_l2_stab, parr_h1_stab, h;
-#     parr_l2_nostab=parr_l2_nostab,
-#     parr_h1_nostab=parr_h1_nostab,
+#     parr_l2_stab, parr_h1_stab, h_arr;
+#     #parr_l2_nostab=parr_l2_nostab,
+#     #parr_h1_nostab=parr_h1_nostab,
 #     title_str="Convergence of CutFEM Stokes Navier BC"
 # )
 
@@ -301,7 +301,7 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 # )
 
 # n = 16                # øke denne?
-# M = 10               #full kjøring med M = 2000 med 2000 så kjører det nok i 2 timer. 
+# M = 100               #full kjøring med M = 2000 med 2000 så kjører det nok i 2 timer. 
 # # βu0 = 1
 # # γu1 = 1
 # # γu2 = 1
