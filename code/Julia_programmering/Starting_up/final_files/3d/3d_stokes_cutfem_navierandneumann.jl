@@ -6,7 +6,6 @@ using Plots
 using LineSearches: BackTracking
 import Random
 using Logging
-using LoggingExtras
 using Test
 
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\utils\\utils.jl")
@@ -270,12 +269,12 @@ function stokes_navierBC_CutFEM_3d(;n, u_exact, p_exact, f, g, ud, order, geomet
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 solver = stokes_navierBC_CutFEM_3d
-uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
+# uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 
 
 # ################################################################ Convergence test ##########################################################
-# numb_it = 3
-# uarr_l2_stab, uarr_h1_stab, parr_l2_stab, parr_h1_stab, h = convergence_stokes_weird_domain(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
+numb_it = 4
+uarr_l2_stab, uarr_h1_stab, parr_l2_stab, parr_h1_stab, harr = convergence_stokes_weird_domain(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
 
 #stabilize = false
@@ -283,7 +282,7 @@ uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, co
 
 # ########## velocity convergence plot:
 # plot_convergence_u(
-#     uarr_l2_stab, uarr_h1_stab, h;
+#     uarr_l2_stab, uarr_h1_stab, harr;
 #     title_str="Convergence of CutFEM: Stokes Navier BC"
 # )
 

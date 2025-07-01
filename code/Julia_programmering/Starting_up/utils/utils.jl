@@ -7,6 +7,12 @@ outputfolderstokes = "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stok
             R  = 1.0
             geo = AnalyticalGeometry(x->(x[1])^2+(x[2]^2)-R^2)
             return geo
+
+        elseif lowercase(name) == "circle2"
+            R = 2
+            geo = AnalyticalGeometry(x->(x[1])^2+(x[2]^2)-R^2)
+            return geo
+
         elseif lowercase(name) =="flower"
             LL= 2.1
             r0, r1 = 0.35*LL, 0.09*LL
@@ -63,10 +69,9 @@ outputfolderstokes = "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stok
     end
   end
 
-
-
-function plot_convergence_u(uarr_l2, uarr_h1, h)
-    # Plotting the convergence of the velocity
+function plot_convergence_u(uarr_l2, uarr_h1, h;
+                            uarr_l2_nostab=nothing, uarr_h1_nostab=nothing,
+                            title_str="Convergence of p-stokes FEM")
     plot(
         0,
         titlefont = 16,
@@ -74,15 +79,27 @@ function plot_convergence_u(uarr_l2, uarr_h1, h)
         tickfont = 12
     )
 
-    plot!(h, uarr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
-    plot!(h, uarr_h1, marker=:o, lw=2, label="H1 stabilized")
+    has_nostab = !(uarr_l2_nostab === nothing || uarr_h1_nostab === nothing)
+
+    label_l2 = has_nostab ? "L² stabilized" : "L²"
+    label_h1 = has_nostab ? "H¹ stabilized" : "H¹"
+
+    plot!(h, uarr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label=label_l2)
+    plot!(h, uarr_h1, marker=:o, lw=2, label=label_h1)
+
+    if has_nostab
+        plot!(h, uarr_l2_nostab, marker=:x, lw=2, label="L² unstabilized")
+        plot!(h, uarr_h1_nostab, marker=:x, lw=2, label="H¹ unstabilized")
+    end
+
     xlabel!("Mesh size h")
     ylabel!("Velocity error")
-    title!("Convergence of p-stokes FEM")
+    title!(title_str)
 end
 
-function plot_convergence_p(parr_l2, parr_h1, h)
-    # Plotting the convergence of the velocity
+function plot_convergence_p(parr_l2, parr_h1, h;
+                            parr_l2_nostab=nothing, parr_h1_nostab=nothing,
+                            title_str="Convergence of p-stokes FEM")
     plot(
         0,
         titlefont = 16,
@@ -90,13 +107,237 @@ function plot_convergence_p(parr_l2, parr_h1, h)
         tickfont = 12
     )
 
-    plot!(h, parr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label="L2 stabilized")
-    plot!(h, parr_h1, marker=:o, lw=2, label="H1 stabilized")
+    has_nostab = !(parr_l2_nostab === nothing || parr_h1_nostab === nothing)
+
+    label_l2 = has_nostab ? "L² stabilized" : "L²"
+    label_h1 = has_nostab ? "H¹ stabilized" : "H¹"
+
+    plot!(h, parr_l2, xaxis=:log, yaxis=:log, marker=:o, lw=2, label=label_l2)
+    plot!(h, parr_h1, marker=:o, lw=2, label=label_h1)
+
+    if has_nostab
+        plot!(h, parr_l2_nostab, marker=:x, lw=2, label="L² unstabilized")
+        plot!(h, parr_h1_nostab, marker=:x, lw=2, label="H¹ unstabilized")
+    end
+
     xlabel!("Mesh size h")
     ylabel!("Pressure error")
-    title!("Convergence of p-stokes FEM")
+    title!(title_str)
 end
-  
+
+using Plots
+
+function plot_sensitivity_velocity(
+    δ_stab::Vector{<:Real}, l2_stab::Vector{<:Real}, h1_stab::Vector{<:Real},
+    δ_nostab::Vector{<:Real}, l2_nostab::Vector{<:Real}, h1_nostab::Vector{<:Real};
+    start::Int = 1,
+    title_str::String = "Sensitivity CutFEM: Stokes with Navier BC"
+)
+    plot(
+        xlabel = "Perturbation δ",
+        ylabel = "Velocity error",
+        title = title_str,
+        yaxis = :log,
+        lw = 2,
+        titlefont = 16,
+        guidefont = 14,
+        tickfont = 12,
+        legend = :topright
+    )
+
+    plot!(δ_stab[start:end], l2_stab[start:end], label = "L² stabilized")
+    plot!(δ_nostab[start:end], l2_nostab[start:end], label = "L² non-stabilized")
+    plot!(δ_stab[start:end], h1_stab[start:end], label = "H¹ stabilized")#, marker = :diamond)
+    plot!(δ_nostab[start:end], h1_nostab[start:end], label = "H¹ non-stabilized")#, marker = :diamond)
+end
+
+function plot_sensitivity_pressure(
+    δ_stab::Vector{<:Real}, l2_stab::Vector{<:Real}, h1_stab::Vector{<:Real},
+    δ_nostab::Vector{<:Real}, l2_nostab::Vector{<:Real}, h1_nostab::Vector{<:Real};
+    start::Int = 1,
+    title_str::String = "Sensitivity CutFEM: Stokes with Navier BC"
+)
+    plot(
+        xlabel = "Perturbation δ",
+        ylabel = "Pressure error",
+        title = title_str,
+        yaxis = :log,
+        lw = 2,
+        titlefont = 16,
+        guidefont = 14,
+        tickfont = 12,
+        legend = :topright
+    )
+
+    plot!(δ_stab[start:end], l2_stab[start:end], label = "L² stabilized")#, marker = :circle)
+    plot!(δ_nostab[start:end], l2_nostab[start:end], label = "L² non-stabilized")#, marker = :circle)
+    plot!(δ_stab[start:end], h1_stab[start:end], label = "H¹ stabilized")#, marker = :diamond)
+    plot!(δ_nostab[start:end], h1_nostab[start:end], label = "H¹ non-stabilized")#, marker = :diamond)
+end
+function plot_sensitivity_poisson(
+    δ_stab::Vector{<:Real}, l2_stab::Vector{<:Real}, h1_stab::Vector{<:Real},
+    δ_nostab::Vector{<:Real}, l2_nostab::Vector{<:Real}, h1_nostab::Vector{<:Real};
+    start::Int = 1,
+    title_str::String = "Sensitivity CutFEM: Poisson",
+    marker_l2_stab = :circle,
+    marker_l2_nostab = :diamond,
+    marker_h1_stab = :utriangle,
+    marker_h1_nostab = :square,
+    markstep::Int = 50
+)
+    function sparse_markers(x, y, step)
+        x_marker = [i % step == 0 ? xi : missing for (i, xi) in enumerate(x)]
+        y_marker = [i % step == 0 ? yi : missing for (i, yi) in enumerate(y)]
+        return x_marker, y_marker
+    end
+
+    plot(
+        xlabel = "Perturbation δ",
+        ylabel = "Error",
+        title = title_str,
+        yaxis = :log,
+        lw = 2,
+        titlefont = 16,
+        guidefont = 14,
+        tickfont = 12,
+        legend = :topright,
+        markersize = 6
+    )
+
+    # L² stabilized
+    plot!(δ_stab[start:end], l2_stab[start:end], label = "L² stabilized", marker = :none)
+    if marker_l2_stab !== nothing
+        x, y = sparse_markers(δ_stab[start:end], l2_stab[start:end], markstep)
+        scatter!(x, y, label = "", marker = marker_l2_stab)
+    end
+
+    # L² non-stabilized
+    plot!(δ_nostab[start:end], l2_nostab[start:end], label = "L² non-stabilized", marker = :none)
+    if marker_l2_nostab !== nothing
+        x, y = sparse_markers(δ_nostab[start:end], l2_nostab[start:end], markstep)
+        scatter!(x, y, label = "", marker = marker_l2_nostab)
+    end
+
+    # H¹ stabilized
+    plot!(δ_stab[start:end], h1_stab[start:end], label = "H¹ stabilized", marker = :none)
+    if marker_h1_stab !== nothing
+        x, y = sparse_markers(δ_stab[start:end], h1_stab[start:end], markstep)
+        scatter!(x, y, label = "", marker = marker_h1_stab)
+    end
+
+    # H¹ non-stabilized
+    plot!(δ_nostab[start:end], h1_nostab[start:end], label = "H¹ non-stabilized", marker = :none)
+    if marker_h1_nostab !== nothing
+        x, y = sparse_markers(δ_nostab[start:end], h1_nostab[start:end], markstep)
+        scatter!(x, y, label = "", marker = marker_h1_nostab)
+    end
+end
+
+function plot_condition_poisson(
+    δ_stab::Vector{<:Real}, cond_stab::Vector{<:Real},
+    δ_nostab::Vector{<:Real}, cond_nostab::Vector{<:Real};
+    start::Int = 1,
+    title_str::String = "Condition number: CutFEM Poisson",
+    marker_stab = :circle,
+    marker_nostab = :diamond,
+    markstep::Int = 50
+)
+    function sparse_markers(x, y, step)
+        x_marker = [i % step == 0 ? xi : missing for (i, xi) in enumerate(x)]
+        y_marker = [i % step == 0 ? yi : missing for (i, yi) in enumerate(y)]
+        return x_marker, y_marker
+    end
+
+    plot(
+        xlabel = "Perturbation δ",
+        ylabel = "Condition number",
+        title = title_str,
+        yaxis = :log,
+        lw = 2,
+        titlefont = 16,
+        guidefont = 14,
+        tickfont = 12,
+        legend = :topleft,
+        markersize = 6
+    )
+
+    plot!(δ_stab[start:end], cond_stab[start:end], label = "Stabilized", marker = :none)
+    if marker_stab !== nothing
+        x, y = sparse_markers(δ_stab[start:end], cond_stab[start:end], markstep)
+        scatter!(x, y, label = "", marker = marker_stab)
+    end
+
+    plot!(δ_nostab[start:end], cond_nostab[start:end], label = "Non-stabilized", marker = :none)
+    if marker_nostab !== nothing
+        x, y = sparse_markers(δ_nostab[start:end], cond_nostab[start:end], markstep)
+        scatter!(x, y, label = "", marker = marker_nostab)
+    end
+end
+
+
+
+function compute_eoc(h, error)
+    return [log(error[i+1]/error[i]) / log(h[i+1]/h[i]) for i in 1:length(h)-1]
+end
+
+function plot_eoc(h, error; label="EOC", color=:blue)
+    eocs = compute_eoc(h, error)
+    h_mid = [sqrt(h[i]*h[i+1]) for i in 1:length(eocs)]  # log-midtpunkt
+    plot(h_mid, eocs, xaxis=:log, marker=:circle, lw=2, label=label, xlabel="Mesh size h", ylabel="EOC", color=color)
+end
+
+
+function plot_convergence_generic(
+    h::Vector{<:Real},
+    u_l2_stab::Vector{<:Real}, u_h1_stab::Vector{<:Real};
+    u_l2_nostab::Union{Nothing, Vector{<:Real}} = nothing,
+    u_h1_nostab::Union{Nothing, Vector{<:Real}} = nothing,
+    start::Int = 1,
+    title_str::String = "Convergence of CutFEM Stokes Solver",
+    annotate_mode::Symbol = :last # :last eller :all
+)
+    plot(
+        xlabel = "Mesh size h",
+        ylabel = "Velocity error",
+        title = title_str,
+        xaxis = :log,
+        yaxis = :log,
+        markerstrokewidth = 0,
+        titlefont = 16,
+        guidefont = 14,
+        tickfont = 12,
+        legend = :bottomleft
+    )
+
+    hplot = h[start:end]
+    curves = [
+        (u_l2_stab[start:end], "L2 stabilized", :o),
+        (u_h1_stab[start:end], "H1 stabilized", :o)
+    ]
+    if u_l2_nostab !== nothing && u_h1_nostab !== nothing
+        push!(curves, (u_l2_nostab[start:end], "L2 non-stabilized", :s))
+        push!(curves, (u_h1_nostab[start:end], "H1 non-stabilized", :s))
+    end
+
+    for (yvals, labelname, markertype) in curves
+        plot!(hplot, yvals, marker = markertype, lw = 2, label = labelname)
+
+        eocs = compute_eoc(hplot, yvals)
+
+        if annotate_mode == :last
+            xpos = sqrt(hplot[end-1]*hplot[end])
+            ypos = sqrt(yvals[end-1]*yvals[end])
+            annotate!(xpos, ypos*0.1, text("slope ≈ $(round(eocs[end], digits=2))", 9))
+        elseif annotate_mode == :all
+            for i = 1:length(eocs)
+                xpos = sqrt(hplot[i]*hplot[i+1])
+                ypos = sqrt(yvals[i]*yvals[i+1]) * 1.1^(length(curves) - 1) * 0.95^i
+                annotate!(xpos, ypos, text("$(round(eocs[i], digits=2))", 8))
+            end
+        end
+    end
+    return current()
+end
   # Define ghost penalty
 function jump_nn(u,n)
     return ( n.plus ⋅ (n.plus⋅∇∇(u).plus) - n.minus ⋅ (n.minus ⋅ ∇∇(u).minus) )       # andre ordens hopp... Forklare dette skikkelig. 
@@ -114,6 +355,126 @@ function jump_nn_symm(u,n)
 
     return ( n.plus ⋅ (n.plus⋅εεu_plus) - n.minus ⋅ (n.minus ⋅ εεu_minus))       # andre ordens hopp... Forklare dette skikkelig. 
 end
+
+function print_eoc_latex_combined_pressure(h::Vector{<:Real};
+    parr_l2_stab::Union{Nothing, Vector{<:Real}} = nothing,
+    parr_h1_stab::Union{Nothing, Vector{<:Real}} = nothing,
+    parr_l2_nostab::Union{Nothing, Vector{<:Real}} = nothing,
+    parr_h1_nostab::Union{Nothing, Vector{<:Real}} = nothing,
+    start::Int = 1
+)
+    hsub = h[start:end]
+    n_rows = length(hsub) - 1
+
+    datasets = []
+    if parr_l2_stab !== nothing
+        push!(datasets, ("\\(L^2\\) stab", parr_l2_stab[start:end]))
+    end
+    if parr_h1_stab !== nothing
+        push!(datasets, ("\\(H^1\\) stab", parr_h1_stab[start:end]))
+    end
+    if parr_l2_nostab !== nothing
+        push!(datasets, ("\\(L^2\\) no stab", parr_l2_nostab[start:end]))
+    end
+    if parr_h1_nostab !== nothing
+        push!(datasets, ("\\(H^1\\) no stab", parr_h1_nostab[start:end]))
+    end
+
+    n_cols = 1 + 2 * length(datasets)
+    println("\\begin{tabular}{", "c"^n_cols, "}")
+    println("\\toprule")
+
+    print("\$h_1 \\rightarrow h_2\$")
+    for (label, _) in datasets
+        print(" & \\multicolumn{2}{c}{", label, "} ")
+    end
+    println(" \\\\")
+
+    print(" ")
+    for _ in 1:length(datasets)
+        print(" & Error & EOC")
+    end
+    println(" \\\\")
+    println("\\midrule")
+
+    for i in 1:n_rows
+        k1 = round(Int, log2(1/hsub[i]))
+        k2 = round(Int, log2(1/hsub[i+1]))
+        print("\$ 2^{-$k1} \\rightarrow 2^{-$k2} \$")
+        for (_, errors) in datasets
+            err = round(errors[i+1], sigdigits=3)
+            eoc = round(log(errors[i+1]/errors[i]) / log(hsub[i+1]/hsub[i]), digits=2)
+            print(" & \$ $err \$ & \$ $eoc \$")
+        end
+        println(" \\\\")
+    end
+
+    println("\\bottomrule")
+    println("\\end{tabular}")
+end
+
+
+function print_eoc_latex_combined(h::Vector{<:Real};
+    uarr_l2_stab::Union{Nothing, Vector{<:Real}} = nothing,
+    uarr_h1_stab::Union{Nothing, Vector{<:Real}} = nothing,
+    uarr_l2_nostab::Union{Nothing, Vector{<:Real}} = nothing,
+    uarr_h1_nostab::Union{Nothing, Vector{<:Real}} = nothing,
+    start::Int = 1
+)
+    hsub = h[start:end]
+    n_rows = length(hsub) - 1
+
+    # Samle alle datasett
+    datasets = []
+    if uarr_l2_stab !== nothing
+        push!(datasets, ("\\(L^2\\) stab", uarr_l2_stab[start:end]))
+    end
+    if uarr_h1_stab !== nothing
+        push!(datasets, ("\\(H^1\\) stab", uarr_h1_stab[start:end]))
+    end
+    if uarr_l2_nostab !== nothing
+        push!(datasets, ("\\(L^2\\) no stab", uarr_l2_nostab[start:end]))
+    end
+    if uarr_h1_nostab !== nothing
+        push!(datasets, ("\\(H^1\\) no stab", uarr_h1_nostab[start:end]))
+    end
+
+    n_cols = 1 + 2 * length(datasets)
+    println("\\begin{tabular}{", "c"^n_cols, "}")
+    println("\\toprule")
+
+    print("\$h_1 \\rightarrow h_2\$")
+    for (label, _) in datasets
+        print(" & \\multicolumn{2}{c}{", label, "} ")
+    end
+    println(" \\\\")
+
+    print(" ")
+    for _ in 1:length(datasets)
+        print(" & Error & EOC")
+    end
+    println(" \\\\")
+    println("\\midrule")
+
+    for i in 1:n_rows
+        k1 = round(Int, log2(1/hsub[i]))
+        k2 = round(Int, log2(1/hsub[i+1]))
+        print("\$ 2^{-$k1} \\rightarrow 2^{-$k2} \$")
+        for (_, errors) in datasets
+            err = round(errors[i+1], sigdigits=3)
+            eoc = round(log(errors[i+1]/errors[i]) / log(hsub[i+1]/hsub[i]), digits=2)
+            print(" & \$ $err \$ & \$ $eoc \$")
+        end
+        println(" \\\\")
+    end
+
+    println("\\bottomrule")
+    println("\\end{tabular}")
+end
+
+
+
+
 
 # cut FEM poisson solver:
 function poisson_solver(n, u_exact, lhs, order, geometry, γd, γg1, γg3, stabilize, δ, save = false)
@@ -193,8 +554,8 @@ function poisson_solver(n, u_exact, lhs, order, geometry, γd, γg1, γg3, stabi
     erru = uh - u_exact
 
     # l2 and h1 normal
-    l2(u) = √(∑( ∫( u*u )dΩ ))
-    h1(u) = √(∑( ∫( u*u + ∇(u)⋅∇(u) )dΩ ))
+    l2(u) = √(∑( ∫( u*u )dΩ ))^(1/2)
+    h1(u) = √(∑( ∫( u*u + ∇(u)⋅∇(u) )dΩ ))^(1/2)
 
     # condition number
     condition_numb= cond(Array(get_matrix(op)),2)
@@ -354,15 +715,22 @@ function stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
       b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ
                   + ∫((n_Γd ⋅ v) * p)dΓd)#
      
-      gu(u,v) = ( ∫( (β_1*h)*jump(n_Fg ⋅ ∇(u))⋅jump(n_Fg⋅ ∇(v)) )dFg 
-              +  
-                 ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
+    #   gu(u,v) = ( ∫( (β_1*h)*jump(n_Fg ⋅ ∇(u))⋅jump(n_Fg⋅ ∇(v)) )dFg 
+    #           +  
+    #              ∫( (β_2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg)
   
   
-      gp(p, q) = (∫((β_3*h^3)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)
+    #   gp(p, q) = (∫((β_3*h^3)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)
+
+    gu(u,v) = ( ∫( (γu1*h)*jump(n_Fg⋅∇(u))⋅jump(n_Fg⋅∇(v)) )dFg 
+            +  
+               ∫( (γu2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg
+)
+
+    gp(p,q) = ∫( (γp*h^3)*jump(n_Fg⋅∇(p))*jump(n_Fg⋅∇(q)) )dFg
   
-      l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
-      h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
+      l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))^(1/2)
+      h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)^(1/2)
       
       l1(v) = ∫(f ⋅ v)dΩ
       l2(v) = ∫(-1* (n_Γd ⋅ ε(v)) ⋅ ud)dΓd 
@@ -378,8 +746,8 @@ function stokes_cutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
           op = AffineFEOperator(A,L,X,Y)
           uh, ph = solve(op)
       else
-          B((u,p),(v,q)) = a(u,v) + b(v, p) + b(u, q) 
-          M((v,q)) = l1(v) + l2(v) + l3(q)
+          B((u,p),(v,q)) = (a(u,v) + b(v, p) + b(u, q) )
+          M((v,q)) = l1(v) + l2(v) + l3(v) + l4(q)
        # Linear forms
           op = AffineFEOperator(B,M,X,Y)
           uh, ph = solve(op)
@@ -479,7 +847,7 @@ function stokes_FEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1,
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
 
-function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
+function stokes_CutFEM(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
       """
       Using a stabilized Nitsche ficticious domain method as decribed by Massing and Larson, Logg and Rognes. Using P2-P1 Taylor-Hood elements.  
       n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
@@ -554,8 +922,8 @@ function stokes_solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γ
   
       gp(p, q) = (∫((β_3*h^3)*jump(n_Fg ⋅ ∇(p)) * jump(n_Fg ⋅ ∇(q)))dFg)
   
-      l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))
-      h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)
+      l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))^(1/2)
+      h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)^(1/2)
       
       l1(v) = ∫(f ⋅ v)dΩ
       l2(v) = ∫(-1* (n_Γd ⋅ ε(v)) ⋅ ud + γ/h ⋅ v ⋅ ud )dΓd
@@ -1000,6 +1368,43 @@ function convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometr
   return uarr_l2, uarr_h1, parr_l2, parr_h1, h#, EOC_l2, EOC_h1
 end
 
+
+function convergence_stokes_weird_domain(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save = false)
+  #"""function to calculate convergence of the poisson solver, or the stokes solver, with or without stabilization"""
+  calc_condition = false 
+  uarr_l2 = zeros(Float64, numb_it)
+  uarr_h1 = zeros(Float64, numb_it)
+  parr_l2 = zeros(Float64, numb_it)
+  parr_h1 = zeros(Float64, numb_it)
+
+  n_arr = 2 .^ (4:(numb_it + 3))
+  h = 1.0 ./ n_arr
+
+  for i = 1:numb_it
+    n = n_arr[i]
+    elapsed_time, solver_result = let
+        t, val = @timed solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
+        (val, t) 
+    end
+    uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver_result
+
+    uarr_l2[i] = l2_u  #l2 error
+    uarr_h1[i] = h1_semi_u  #h1 error
+    parr_l2[i] = l2_p  #l2 error
+    parr_h1[i] = h1_semi_p  #h1 error
+
+      println("$i: Solved system in $elapsed_time seconds.")
+  end
+  #println(length(uarr_h1))
+  #println(length(h))
+  #EOC_l2 = log.(uarr_l2[1:end-1] ./ uarr_l2[2:end]) ./ log.(h[1:end-1] ./ h[2:end])
+  #EOC_h1 = log.(uarr_h1[1:end-1] ./ uarr_h1[2:end]) ./ log.(h[1:end-1] ./ h[2:end])
+
+  return uarr_l2, uarr_h1, parr_l2, parr_h1, h#, EOC_l2, EOC_h1
+end
+
+
+
 function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, solver, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
     calc_condition = false
     arr_δ = zeros(Float64, M-1)
@@ -1018,7 +1423,7 @@ function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, 
         #end
         #uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver_result
         uh, u_exact, erru, l2_u, h1_semi_u, ph, p_exact, errp, l2_p, h1_semi_p, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
-        
+        save = false
         arr_δ[i] = δ
         arr_l2u[i] = l2_u
         arr_h1u[i] = h1_semi_u
@@ -1026,10 +1431,208 @@ function sensitivity_stokes(;n, M, u_exact, p_exact, f, g, ud, order, geometry, 
         arr_h1p[i] = h1_semi_p
         arr_cond[i] = condition_numb
 
-        if i % 10 == 0
+        if i % 100 == 0
             println("$i") #: Solved system in $elapsed_time seconds.")
-            #save = true     #lagrer løsningen hver 100nde gang
+            save = true     #lagrer løsningen hver 100nde gang
         end
     end
     return arr_δ, arr_l2u, arr_h1u, arr_l2p, arr_h1p, arr_cond
 end
+
+
+# # p stokes cut FEM fungerer veldig bra, men må få lagt inn rikig viskositetsavhengighet.
+# function teste(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save = false, calc_condition = false)
+#     """
+#     cutFEM solver for the non-linear stokes (p-stokes) equations. Using P2-P1 Taylor-Hood elements.  
+#     n: number of grid elements. Powers of 2 for simplicity and convergence estimates.
+#     u_exact: exact solution for method of manufactured solutions
+#     order: order of polynomial degree. 
+#     f: lhs for first term, -∇ (ν ∇(u_ex) + ∇p = f
+#     g: lhs for second term u = g
+#     geometry: optional between "Circle", "Flower", "Heart", "Glacier".
+#     stabilize: wheather to add the stabilization term or not
+#     δ: perturbation of cut
+#     """
+    
+#     γn = 0.05  # hentet fra Josefin sin artikkel.
+#     γt = 0.05  # hentet fra Josefin sin artikkel.
+#     e = 0 
+#     partition = (n,n)
+#     Rout     = 2.1                # radius på ytre sirkel
+#     δ        = 0.0                # evt. translasjon
+
+#     pmin = Point(-Rout + δ, -Rout + δ)
+#     pmax = Point( Rout + δ,  Rout + δ)
+#     bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
+
+#     geo_inner = create_geometry("circle", n)                # det indre hjertet
+#     geo_outer = create_geometry("circle2", n)              # den ytre sirkelen
+
+#     #Ring-geometri:  outer ∩ (!inner)
+#     geo_ring  = geo_outer ∩ !geo_inner        # <= hovedpoenget
+
+#     #3. Cut én gang
+#     cutgeo  = cut(bgmodel, geo_ring)
+#     Ω_act   = Triangulation(cutgeo, ACTIVE)
+#     Ω  = Triangulation(cutgeo, PHYSICAL)
+
+#     # Ytre kant: alle fasetter mellom “inne i geo_outer” og “ute av bgmodel”
+#     # denne kaller vi for b, sånn at etterpånår jeg tester free surface så heter den indre s...
+#     cut_outer = cut(bgmodel, geo_outer)
+#     Γb   = EmbeddedBoundary(cut_outer)
+#     n_Γb = get_normal_vector(Γb)
+
+#     # Indre kant: alle fasetter mellom “inne i bgmodel” og “ute av geo_inner”
+#     # Denne kaller vi for s
+#     cut_inner = cut(bgmodel, geo_inner)
+#     Γs   = EmbeddedBoundary(cut_inner)
+#     n_Γs = get_normal_vector(Γs)
+
+#     # -- (valgfritt) samle begge til én “ring”-boundary om du trenger det --
+#     Γ_ring    = EmbeddedBoundary(cutgeo)       # har både indre+ytre fasetter
+#     n_Γ_ring  = get_normal_vector(Γ_ring)
+
+#     # Get ghost penalty facets
+#     Fg = GhostSkeleton(cutgeo)
+#     n_Fg = get_normal_vector(Fg)
+
+#     # All interior facets of active mesh
+#     Fi = SkeletonTriangulation(Ω_act)
+#     n_Fi = get_normal_vector(Fi)
+
+#     # Function spaces orders
+#     # order_u  = 1
+#     # order_pT = order_u
+#     order_u  = 2
+#     order_p = order_u - 1
+
+#     # Define measures
+#     degree = 2*order_u
+#     dΩ = Measure(Ω,degree)
+#     dΓb = Measure(Γb, degree)
+#     dΓs = Measure(Γs, degree)
+#     dFg = Measure(Fg, degree)
+#     dFi = Measure(Fi, degree)
+
+#     # %% Define weak formulation
+#     # Define function spaces
+#     reffe_u  = ReferenceFE(lagrangian,VectorValue{dim, Float64},order)
+#     reffe_p = ReferenceFE(lagrangian,Float64, order-1)
+
+#     V = TestFESpace(Ω_act, reffe_u,  conformity=:H1)
+#     Q = TestFESpace(Ω_act, reffe_p, conformity=:H1, constraint=:zeromean)
+
+#     U = TrialFESpace(V)
+#     P = TrialFESpace(Q)
+
+#     X = MultiFieldFESpace([U, P])
+#     Y = MultiFieldFESpace([V, Q])
+
+#     # Physical parameters (potentially rescaled after time-step discretization)
+
+#     # Nitsche and Ghost penalty stabilization parameter
+#     βu = 10.0*order_u^2
+#     γu1 = 0.1
+#     γu2 = 0.1
+#     γp = 0.1
+#     βp = 0.1
+
+#     # Weak formulation
+
+#     # mesh size
+#     h = (pmax-pmin)[1]/partition[1]
+    
+#     #println(sum( ∫( p_exact) * dΩ ))
+#     l2_norm(u) = (sum( ∫( u ⋅ u )*dΩ ))^(1/2)
+#     h1_semi(u) = sum(∫(∇(u) ⊙ ∇(u))*dΩ)^(1/2)
+
+#     I₂ = one(TensorValue{2,2,Float64})
+
+#     # Projeksjons‐operatorene:
+#     # defining the Navier operators
+#     Pn(n) = n ⊗ n        # normal projection operator
+#     Pt(n) = I₂ - Pn(n)     # tangential projection operator
+    
+
+#     # Legger på base boundary condition på hele
+#     a0(u, v) = ∫( ε(v)⊙(flux(ε(u))))dΩ              # sjekket med Hanna
+#     a1(u, v) = (∫(-((n_Γb ⋅ (flux(ε(u)))) ⋅ v))dΓb
+#     - ∫(((n_Γs ⋅ (flux(ε(u)))) ⋅ v))dΓs 
+#     )
+#     a2(u, v) = (∫(-(Pn(n_Γb)⋅ u) ⋅ (n_Γb ⋅ (flux(ε(v)))))dΓb
+#     - ∫((Pn(n_Γs)⋅ u) ⋅ (n_Γs ⋅ (flux(ε(v)))))dΓs
+#     )
+#     a3(u, v) = (∫((2* nu0/(γn*h)*(n_Γb ⋅ u)) ⋅ (n_Γb ⋅ v)  )dΓb
+#     + ∫((2* nu0/(γn*h)*(n_Γs ⋅ u)) ⋅ (n_Γs ⋅ v)  )dΓs
+#     ) 
+#     a4(u, v) = (∫((e/(e + γt *h) * ((Pt(n_Γb) ⋅  (n_Γb ⋅ (flux(ε(u)))))) ⋅ v))dΓb
+#     + ∫((e/(e + γt *h) * ((Pt(n_Γs) ⋅  (n_Γs ⋅ (flux(ε(u)))))) ⋅ v))dΓs
+#     )
+#     a5(u, v) = (∫((nu0/(e + γt*h)*(Pt(n_Γb) ⋅ u)) ⋅ ( Pt(n_Γb) ⋅ v))dΓb 
+#     + ∫((nu0/(e + γt*h)*(Pt(n_Γs) ⋅ u)) ⋅ ( Pt(n_Γs) ⋅ v))dΓs
+#     ) 
+#     a6(u, v) = (∫(-(e*γt * h/(e + γt*h) * (Pt(n_Γb) ⋅  (n_Γb ⋅ (flux∘ε(u)))) ) ⋅ (2*n_Γb ⋅ ε(v)))dΓb         
+#     - ∫((e*γt * h/(e + γt*h) * (Pt(n_Γs) ⋅  (n_Γs ⋅ (flux∘ε(u)))) ) ⋅ (2*n_Γs ⋅ ε(v)))dΓs
+#     )
+#     a7(u, v) = (∫(-(nu0 * γt * h / (e + γt *h) * (Pt(n_Γb)⋅ u)) ⋅ (2* n_Γb ⋅ ε(v)))dΓb  
+#     - ∫((nu0 * γt * h / (e + γt *h) * (Pt(n_Γs)⋅ u)) ⋅ (2* n_Γs ⋅ ε(v)))dΓs
+#     )
+    
+#     b(p, v) = (
+#         ∫(-1*(∇ ⋅ v*p))dΩ 
+#     + ∫((n_Γb ⋅ v) * p)dΓb 
+#     + ∫((n_Γs ⋅ v) * p)dΓs
+#     )
+
+#     l(v, q) = (∫(f ⋅ v - g ⋅ q)dΩ)     # OK
+
+#     lb(v, q) =(∫(-(n_Γb ⋅ ud) ⋅ ( n_Γb ⋅ (n_Γb ⋅ flux(ε(v)))))dΓb #OK
+#     + ∫(((2*nu0)/(γn *h) * (n_Γb ⋅ ud)) ⋅ (n_Γb ⋅ v) )dΓb #OKb
+#     - ∫((n_Γb ⋅ ud) ⋅ q)dΓb  #OK
+#     + ∫((nu0/(e + γt * h) ⋅ (Pt(n_Γb) ⋅ ud) )⋅ (Pt(n_Γb) ⋅ v) )dΓb #OK    # endrer her, og endrer her... skal dette være odot?
+#     - ∫((nu0 * γt * h/(e + γt * h) * Pt(n_Γb) ⋅ ud) ⋅ (2*n_Γb ⋅ ε(v)))dΓb # OK
+#     )
+
+#     ls(v, q) =(
+#     ∫(-(n_Γs⋅ ud) ⋅ ( n_Γs ⋅ (n_Γs ⋅ flux(ε(v)))))dΓs #OK
+#     + ∫(((2*nu0)/(γn *h) * (n_Γs ⋅ ud)) ⋅ (n_Γs ⋅ v) )dΓs #OK
+#     - ∫((n_Γs ⋅ ud) ⋅ q)dΓs  #OK
+#     + ∫((nu0/(e + γt * h) ⋅ (Pt(n_Γs) ⋅ ud) )⋅ (Pt(n_Γs) ⋅ v) )dΓs #OK    # endrer her, og endrer her... skal dette være odot?
+#     - ∫((nu0 * γt * h/(e + γt * h) * Pt(n_Γs) ⋅ ud) ⋅ (2*n_Γs ⋅ ε(v)))dΓs # OK
+#     )
+    
+#     # stabiliserer alle facets
+#     g_u(u,v) = ( ∫( (γu1*h)*jump(n_Fg⋅∇(u))⋅jump(n_Fg⋅∇(v)) )dFg 
+#             +  
+#                ∫( (γu2*h^3)*jump_nn(u,n_Fg)⋅jump_nn(v,n_Fg) )dFg
+# )
+#     g_p(p,q) = ∫( (γp*h^3)*jump(n_Fg⋅∇(p))*jump(n_Fg⋅∇(q)) )dFg
+
+#     if stabilize # have tested with different combinations of calling the gp in the residual and jacobian, but this one seems to work best.
+#        # hvis jeg vil teste uten newton-løser:
+#         A((u,p),(v,q)) = a0(u, v) + a1(u, v) + a2(u, v) + a3(u, v) + a4(u, v) + a5(u, v) + a6(u, v) + a7(u, v) + b(p, v) - b(q, u) + g_u(u,v) + g_p(p,q)
+#         L((v, q)) = l(v, q) + lb(v, q) + ls(v, q)
+#         op = AffineFEOperator(A, L, X, Y)
+#         (uh, ph) = solve(op)
+
+#     else
+#         B((u,p),(v,q)) = a0(u, v) - a1(u, v) - a2(u, v) + a3(u, v) + a4(u, v) + a5(u, v) - a6(u, v) - a7(u, v) + b(p, v) - b(q, u) 
+#         M((v, q)) = l(v, q) + lb(v, q) + ls(v, q)
+#         op = AffineFEOperator(B, M, X, Y)
+#         (uh, ph) = solve(op)
+#     end
+
+#     errp = p_exact - ph
+#     erru = u_exact - uh
+    
+#     condition_numb = 1
+#     if save
+#         # writevtk(bgmodel, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\mesh_bg$geometry $δ.vtu")
+#         # writevtk(Fg, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Fg$geometry $δ.vtu")
+#         # writevtk(Γb, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_b_$geometry $δ.vtu")
+#         # writevtk(Γs, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\surface_gamma_s_$geometry $δ.vtu")
+#         # writevtk(Ω_act, "C:\\Users\\Sigri\\Documents\\Master\\report\\figures\\Domenefigurer\\Ω_act$geometry $δ.vtu")
+#         writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order $δ 2circle.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "flux" => flux∘ε(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
+#     end 
+#     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
+# end
