@@ -7,6 +7,7 @@ using LineSearches: BackTracking
 import Random
 using Logging
 using Test
+using DataFrames, CSV
 
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\utils\\utils.jl")
 include("C:\\Users\\Sigri\\Documents\\Master\\report\\code\\Julia_programmering\\Starting_up\\workfiles_stokes\\testing_non-linear_stokes.jl")
@@ -273,14 +274,39 @@ solver = stokes_navierBC_CutFEM_3d
 
 
 # ################################################################ Convergence test ##########################################################
-numb_it = 4
+numb_it = 1
 uarr_l2_stab, uarr_h1_stab, parr_l2_stab, parr_h1_stab, harr = convergence_stokes_weird_domain(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
+
+df = DataFrame(
+  h       = harr,
+  u_l2    = uarr_l2_stab,
+  u_h1    = uarr_h1_stab,
+  p_l2    = parr_l2_stab,
+  p_h1    = parr_h1_stab,
+)
+
+CSV.write("convergence.csv", df)
 
 #stabilize = false
 #uarr_l2_nostab, uarr_h1_nostab, parr_l2_nostab, parr_h1_nostab, h = convergence_stokes_weird_domain(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)
 
-# ########## velocity convergence plot:
+# Lese filen etterpå:
+# Les inn hele CSV-en som en DataFrame
+# df = CSV.read("convergence.csv", DataFrame)
+
+# # Sjekk at kolonnene er der
+# println(names(df))  # ~> [:h, :u_l2, :u_h1, :p_l2, :p_h1]
+
+# # Plukk ut kolonnene som vektorer igjen
+# h     = df.h
+# u_l2  = df.u_l2
+# u_h1  = df.u_h1
+# p_l2  = df.p_l2
+# p_h1  = df.p_h1
+
+
+# # ########## velocity convergence plot:
 # plot_convergence_u(
 #     uarr_l2_stab, uarr_h1_stab, harr;
 #     title_str="Convergence of CutFEM: Stokes Navier BC"
