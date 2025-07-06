@@ -1,5 +1,5 @@
 using Gridap
-# using GridapEmbedded
+using GridapEmbedded
 using STLCutters
 using LinearAlgebra
 using Plots
@@ -16,20 +16,21 @@ denne funker for nu0 = 100, 1 og 0.01!!"""
 #""" Lagt inn konvergensplott for denne i teams"""
 
 # Defining constants
-nu0 =  1   # test ulike verdier for nu0!!! Da synes jeg du skal kjøre konvergenstester men også bare generelt se på hva som skjer med løsningen når du endrer nu0.
+   # test ulike verdier for nu0!!! Da synes jeg du skal kjøre konvergenstester men også bare generelt se på hva som skjer med løsningen når du endrer nu0.
 r = 4/3
 A = 2^(1/(1-r))
 ϵ_0 = 1e-6
+nu0 =  A
 
 # Defining manufactured solutions
 u_exact(x) =  VectorValue(2*x[1] + cos(2*π*x[2]), -2*x[2] + sin(2*π*x[1]))#VectorValue(2*x[1] + exp(x[1]/2) * cos(2*π*x[2]), -2*x[2] + exp(x[2]/2) * sin(2*π*x[1])) #bytte til sin/cos-uttrykk  VectorValue(-x[2], x[1])
 p_exact(x) = sin(2*π*x[1])*cos(2*π*x[2])
 
 # Defining the problem 
-flux(εu) = nu0^(1-r)*(ϵ_0 + norm(εu)^2)^((r-2)/2)⋅εu 
-dflux(εu, εdu)=(r-2)*nu0^(1-r)*(ϵ_0 + norm(εu)^2)^((r-4)/2)*(εu⊙εdu) ⋅ εu + nu0^(1-r)*(ϵ_0 + norm(εu)^2)^((r-2)/2)*εdu
-viskositet(εu) = nu0^(1-r)*(ϵ_0^2 + norm(εu)^2)^((r-2)/2)
-dviskositet(εu, εdu) = nu0^(1-r) *(ϵ_0^2 + εu ⋅ εu)^((r-4)/2)*(εu⊙εdu) *(r-2)
+flux(εu) = nu0^(1-r)*(ϵ_0^2 + tr(εu' ⋅ εu))^((r-2)/2)⋅εu 
+dflux(εu, εdu)=(r-2)*nu0^(1-r)*(ϵ_0^2 + tr(εu' ⋅ εu))^((r-4)/2)*(εu⊙εdu) ⋅ εu + nu0^(1-r)*(ϵ_0^2 + tr(εu' ⋅ εu))^((r-2)/2)*εdu
+viskositet(εu) = nu0^(1-r)*(ϵ_0^2 + tr(εu' ⋅ εu))^((r-2)/2)
+dviskositet(εu, εdu) = nu0^(1-r) *(ϵ_0^2 + tr(εu' ⋅ εu))^((r-4)/2)*(εu⊙εdu) *(r-2)
 
 
 # viskositet(εu) = 1/2*A^(1-r) * (ϵ_0^2 + 1/2 * norm(εu)^2)^((r-2)/2)
@@ -110,10 +111,12 @@ function pstokes_FEM_newton(;n, u_exact, p_exact, f, g, ud, order, geometry, βu
     ######################## kvadratish domain - men bruker nitsche implementasjon. Hvilke spaces skal jeg bruke da? #########################
     # weak formulation components   
 
-    a(u, v) = ∫(ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u) + 2*nu0*γ/h * (u ⋅ v))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
+    a(u, v) = ∫(ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u) + 2*γ/h * (viskositet∘ε(u) ⋅ (u ⋅ v)))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
     b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme som før. 
-    l1((v, q)) = ∫(f ⋅ v - g ⋅ q)dΩ + ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd + ∫( 2*nu0* γ/h* (ud ⋅ v))dΓd
+    l1((u, p), (v, q)) = ∫(f ⋅ v - g ⋅ q)dΩ + ∫(-(n_Γd ⋅ (flux∘ε(v))) ⋅ ud)dΓd + ∫( 2*γ/h* (viskositet∘ε(u) ⋅ (ud ⋅ v)))dΓd
     l2(q) = ∫((n_Γd ⋅ ud) * q)dΓd
+
+    dl1((u, du), (v, q)) = ∫( 2*γ/h*(dviskositet∘(ε(u), ε(du))⋅ (ud ⋅ v)))dΓd 
   
     # a(u, v) = ∫( ε(v)⊙(flux∘ε(u)))dΩ  + ∫(-((n_Γd ⋅ (flux∘ε(u))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ u) + 2*nu0*γ/h * (u ⋅ v))dΓd      # denne må ha et ekstra boundary term. Finn ut hvordan det ser ut. 
     # b(v, p) = (∫(-1*(∇ ⋅ v*p))dΩ + ∫((n_Γd ⋅ v) * p)dΓd)   # b er den samme som før. 
@@ -122,7 +125,7 @@ function pstokes_FEM_newton(;n, u_exact, p_exact, f, g, ud, order, geometry, βu
     # l3((v, q)) = ∫( 2*nu0*γ/h* (ud ⋅ v))dΓd
     # l4(q) = ∫(-1*(n_Γd ⋅ ud) * q)dΓd
     
-    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(u), ε(du))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(u), ε(du)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du) + (2*nu0*γ/h*(du ⋅ v)))dΓd    
+    da(u, du, v) = ∫( ε(v)⊙(dflux∘(ε(u), ε(du))))dΩ  + ∫(-((n_Γd ⋅ (dflux∘(ε(u), ε(du)))) ⋅ v) + (-(n_Γd ⋅ (flux∘ε(v))) ⋅ du) + (2*γ/h*(dviskositet∘(ε(u), ε(du))⋅ (u ⋅ v)))   +   (2*γ/h*(viskositet∘ε(u)⋅ (du ⋅ v))))dΓd    
 
     g_u(u,v) = ( ∫( (γu1*h)*jump(n_Fg⋅∇(u))⋅jump(n_Fg⋅∇(v)) )dFg 
             +  
@@ -130,8 +133,8 @@ function pstokes_FEM_newton(;n, u_exact, p_exact, f, g, ud, order, geometry, βu
 )
     g_p(p,q) = ∫( (γp*h^3)*jump(n_Fg⋅∇(p))*jump(n_Fg⋅∇(q)) )dFg
 
-    res((u,p),(v,q)) = a(u, v) + b(v, p) - b(u, q) - l1((v, q)) + l2(q) + g_u(u, v) + g_p(p, q)
-    jac((u, p), (du, dp), (v, q)) = b(v, dp) - b(du, q) + da(u, du, v) + g_u(du, v) + g_p(dp, q)
+    res((u,p),(v,q)) = a(u, v) + b(v, p) - b(u, q) - l1((u,p), (v, q)) + l2(q) + g_u(u, v) + g_p(p, q)
+    jac((u, p), (du, dp), (v, q)) = b(v, dp) - b(du, q) + da(u, du, v) + g_u(du, v) + g_p(dp, q)  - dl1((u, du), (v, q))
       
     op = FEOperator(res, jac, X, Y)
 
