@@ -242,7 +242,6 @@ function pstokes_CutFEM_navier(;n, u_exact, p_exact, f, g, ud, order, geometry, 
     P = TrialFESpace(Q)
     X = MultiFieldFESpace([U,P])
 
-
     I₂ = one(TensorValue{2,2,Float64})
 
     # Projeksjons‐operatorene:
@@ -358,22 +357,42 @@ function pstokes_CutFEM_navier(;n, u_exact, p_exact, f, g, ud, order, geometry, 
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), xtol=1e-16,        # toleranse på ||x_{k+1} - x_k||
-      ftol=1e-13, iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(),  iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
 
     else
-      res2((u,p),(v,q)) = a0(u, v) + a1(u, v) + a2(u, v) + a3(u, v) + a4(u, v) + a5(u, v) + a6(u, v) + a7(u, v) + b(p, v) - b(q, u) - l(v, q) - lb(u, v, q)
-      jac2((u, p), (du, dp), (v, q)) = da0(u, du, v) + da1(u, du, v) + da2(u, du, v) + da3(u, du, v) + da4(u, du, v) + da5(u, du, v) + da6(u, du, v) + da7(u, du, v) + b(dp, v) - b(q, du) - dlb(u, du, v, q)
-    
+      res2((u,p),(v,q)) = (a0(u, v) 
+      + a1(u, v) 
+      + a2(u, v) 
+      + a3(u, v) 
+      + a4(u, v) 
+      + a5(u, v) 
+      + a6(u, v) 
+      + a7(u, v) 
+      + b(p, v) 
+      - b(q, u) 
+      - l(v, q) 
+      - lb(u, v, q)
+      )
+      jac2((u, p), (du, dp), (v, q)) = (da0(u, du, v) 
+      + da1(u, du, v) 
+      + da2(u, du, v) 
+      + da3(u, du, v) 
+      + da4(u, du, v) 
+      + da5(u, du, v) 
+      + da6(u, du, v) 
+      + da7(u, du, v) 
+      + b(dp, v) 
+      - b(q, du) 
+      - dlb(u, du, v, q)
+      )
       op = FEOperator(res2, jac2, X, Y)
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), xtol=1e-16,        # toleranse på ||x_{k+1} - x_k||
-      ftol=1e-13, iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(),  iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
@@ -417,9 +436,9 @@ geometry = "heart"
 β_3 = 0.1
 γ=10*2*2
 nu = 1      # denne brukes ikke i p_stokes_cutfem, men sendes kun inn for at fuksjonskallet skal være likt i konvergens-funksjonen. 
-uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
+# uh, u_exact, erru, ul2_norm, uh1_semi, ph, p_exact, errp, pl2_norm, ph1_semi, condition_numb, Ω_act = solver(;n, u_exact, p_exact, f, g, ud, order, geometry, βu0, γu1, γu2, γp, βp0, nu, stabilize, δ, save, calc_condition)
 
-# # ################################################## convergence ##########################################################
+# # # ################################################## convergence ##########################################################
 numb_it = 6
 stabilize = true
 uarr_l2, uarr_h1, parr_l2, parr_h1, harr = convergence_stokes(;numb_it, u_exact, p_exact, f, g, ud, order, geometry, solver, δ, βu0, γu1, γu2, γp, βp0, nu, stabilize, save)

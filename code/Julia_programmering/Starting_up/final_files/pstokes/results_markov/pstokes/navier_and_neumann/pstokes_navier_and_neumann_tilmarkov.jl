@@ -378,20 +378,44 @@ function pstokes_CutFEM_navierandneumann(;n, u_exact, p_exact, f, g, ud, order, 
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
 
     else
-      res2((u,p),(v,q)) = a0(u, v) + a1(u, v) + a2(u, v) + a3(u, v) + a4(u, v) + a5(u, v) + a6(u, v) + a7(u, v) + b(p, v) - b(q, u) - l(v, q) - lb(u, v, q)
-      jac2((u, p), (du, dp), (v, q)) = da0(u, du, v) + da1(u, du, v) + da2(u, du, v) + da3(u, du, v) + da4(u, du, v) + da5(u, du, v) + da6(u, du, v) + da7(u, du, v) + b(dp, v) - b(q, du) - dlb(u, du, v, q)
-    
+      res2((u,p),(v,q)) = (a0(u, v) 
+      + a1(u, v) 
+      + a2(u, v) 
+      + a3(u, v) 
+      + a4(u, v) 
+      + a5(u, v) 
+      + a6(u, v) 
+      + a7(u, v) 
+      + b(p, v) 
+      - b(q, u)
+      - l(v, q) 
+      - lb(u, v, q)
+      - ls(v, q)
+      )
+      jac2((u, p), (du, dp), (v, q)) = (da0(u, du, v) 
+      + da1(u, du, v) 
+      + da2(u, du, v) 
+      + da3(u, du, v) 
+      + da4(u, du, v) 
+      + da5(u, du, v) 
+      + da6(u, du, v) 
+      + da7(u, du, v) 
+      + b(dp, v)
+      - b(q, du)
+      - dlb(u, du, v, q)
+      )
+
       op = FEOperator(res2, jac2, X, Y)
 
       # non-linear phase
       nls = NLSolver(
-      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=100)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
+      show_trace=true, method=:newton, linesearch=BackTracking(), iterations=20)      #prøver å legge inn et max antall iterasjoner og en lav toleranse      
       solver = FESolver(nls)
 
       (uh, ph) = solve(solver, op)
@@ -399,16 +423,9 @@ function pstokes_CutFEM_navierandneumann(;n, u_exact, p_exact, f, g, ud, order, 
 
     errp = p_exact - ph
     erru = u_exact - uh
-    
-    # condition number
-    if calc_condition
-      condition_numb= cond(Array(get_matrix(op)),2)   # kanskje bruke infinitynormen istedenfor
-    else
-      condition_numb = 1
-    end
   
     if save
-        writevtk(Ω, "C:\\Users\\Sigri\\Documents\\Master\\report\\results\\stokes\\$n $geometry $order.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
+        writevtk(Ω, "navier_and_neumann $n.vtu", cellfields=["u_ex" => u_exact, "uh"=>uh, "erru"=> erru, "p_ex" => p_exact, "ph"=>ph, "errp"=> errp, "nablau" => ∇(u_exact), "viskositet" => viskositet∘ε(u_exact)]) #, "erru" => erru]) 
     end
     return uh, u_exact, erru, l2_norm(uh - u_exact), h1_semi(uh - u_exact), ph, p_exact, errp, l2_norm(ph - p_exact), h1_semi(ph - p_exact), condition_numb, Ω
 end
